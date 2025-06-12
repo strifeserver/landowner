@@ -68,8 +68,7 @@ class TableView(tk.Frame):
     def create_treeview_table(self, parent):
         # Create a container frame
         tree_frame = tk.Frame(parent)
-        tree_frame.pack(fill=tk.X, expand=True)
-
+        tree_frame.pack(fill=tk.X, expand=False)
         # Treeview + scrollbars container
         table_container = tk.Frame(tree_frame)
         table_container.pack(fill=tk.X, expand=True)
@@ -111,22 +110,6 @@ class TableView(tk.Frame):
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
 
 
-
-        
-            
-    # def create_treeview_scrollbars(self, container):
-    #     # Vertical scrollbar on the side of canvas
-    #     vsb = ttk.Scrollbar(container, orient="vertical")
-    #     vsb.config(command=self.tree_canvas.yview)
-    #     self.tree_canvas.configure(yscrollcommand=vsb.set)
-    #     vsb.pack(side=tk.RIGHT, fill=tk.Y)
-
-    #     # Horizontal scrollbar goes under the Treeview, so we just create and assign
-    #     self.hsb = ttk.Scrollbar(self.tree_frame_inner, orient="horizontal")
-    #     self.hsb.config(command=self.tree.xview)
-
-
-        
 
 
     def create_header(self, title):
