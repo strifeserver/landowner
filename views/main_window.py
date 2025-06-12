@@ -5,6 +5,7 @@ from models.navigation import Navigation
 from models.setting import Setting
 from views.right_panel import RightPanel  # Import the new RightPanel
 
+
 class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
@@ -20,7 +21,9 @@ class MainWindow:
         left_frame = tk.Frame(self.root, bg="#e0e0e0", width=160)
         left_frame.grid(row=0, column=0, sticky="nswe")
 
-        tk.Label(left_frame, text="Navigation", bg="#e0e0e0", font=("Arial", 10, "bold")).pack(pady=10)
+        tk.Label(
+            left_frame, text="Navigation", bg="#e0e0e0", font=("Arial", 10, "bold")
+        ).pack(pady=10)
         self.load_navigation(left_frame)
 
         # Right frame (content)
@@ -32,16 +35,15 @@ class MainWindow:
     def load_navigation(self, parent_frame):
         menu_items = Navigation.index()
         for item in menu_items:
-
             btn = tk.Button(
                 parent_frame,
                 text=item.menu_name,
                 width=20,
-                command=lambda name=item.navigation, ctrl=item.controller: self.on_menu_click(name, ctrl)
+                command=lambda name=item.navigation,
+                ctrl=item.controller: self.on_menu_click(name, ctrl),
             )
             btn.pack(pady=5)
 
     def on_menu_click(self, menu_name, controller_name):
-
         # Instead of messagebox, update the right panel
-        self.right_panel.render_content(menu_name,controller_name)
+        self.right_panel.render_content(menu_name, controller_name)

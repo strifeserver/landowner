@@ -1,75 +1,202 @@
+# table_view.py
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from tkcalendar import DateEntry
 
+
 class TableView(tk.Frame):
-    def __init__(self, parent, columns, data, controller_callback=None, title="Table View", *args, **kwargs):
+    def __init__(
+        self,
+        parent,
+        data,
+        controller_callback=None,
+        title="Table View",
+        columns=None,
+        column_labels=None,
+        *args,
+        **kwargs,
+    ):
         super().__init__(parent, *args, **kwargs)
-        self.columns = columns
         self.controller_callback = controller_callback
-        self.original_data = data
-        self.filtered_data = data
+        self.original_data = data.copy()
+        self.filtered_data = data.copy()
         
+        if columns is None:
+            if (
+                controller_callback
+                and hasattr(controller_callback, "model")
+                and hasattr(controller_callback.model, "fields")
+            ):
+                self.columns = controller_callback.model.fields
+            elif data and isinstance(data, list):
+                self.columns = list(data[0].keys()) if data else []
+            else:
+                self.columns = []
+        else:
+            self.columns = columns
 
-        # Title Bar
-        title_frame = tk.Frame(self)
-        title_frame.pack(fill=tk.X, pady=(5, 2))
-        tk.Label(title_frame, text=title, font=("Arial", 12, "bold")).pack(side=tk.LEFT, padx=10)
+        if column_labels is None:
+            if (
+                controller_callback
+                and hasattr(controller_callback, "model")
+                and hasattr(controller_callback.model, "field_aliases")
+            ):
+                self.column_labels = [
+                    controller_callback.model.field_aliases.get(col, col)
+                    for col in self.columns
+                ]
+            else:
+                self.column_labels = self.columns
+        else:
+            self.column_labels = column_labels
 
-        add_btn = tk.Button(title_frame, text="Add", command=self.on_add, width=10)
-        add_btn.pack(side=tk.RIGHT, padx=10)
+        self.configure_styles()
 
-        self.edit_btn = tk.Button(title_frame, text="Edit", state=tk.DISABLED, command=self.on_edit, width=10)
-        self.edit_btn.pack(side=tk.RIGHT, padx=10)
+        # --- Header ---
+        self.create_header(title)
 
-        self.delete_btn = tk.Button(title_frame, text="Delete", state=tk.DISABLED, command=self.on_delete, width=10)
-        self.delete_btn.pack(side=tk.RIGHT, padx=10)
-
-        # Container
+        # --- Table Container ---
         table_container = tk.Frame(self)
         table_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
 
-        # Single Search Input
-        search_frame = tk.Frame(table_container)
-        search_frame.pack(fill=tk.X, pady=(0, 5))
+        # --- Search & Filter ---
+        self.create_search_and_filter(table_container)
 
-        tk.Label(search_frame, text="Search(all):").pack(side=tk.LEFT, padx=(0, 5))
-
-        self.search_entry = tk.Entry(search_frame, width=30)
-        self.search_entry.pack(side=tk.LEFT, fill=tk.X)
-        self.search_entry.bind("<KeyRelease>", self.on_search)
-        
-        self.filter_all = tk.Button(search_frame, text="More Filters", command=self.filter_all, width=10)
-        self.filter_all.pack(side=tk.LEFT, padx=10)
-
-        # Treeview and Scrollbar
-        tree_frame = tk.Frame(table_container, height=200)
+        # --- Treeview Table ---
+        tree_frame = tk.Frame(table_container)
         tree_frame.pack(fill=tk.BOTH, expand=False)
 
-        self.tree = ttk.Treeview(tree_frame, columns=self.columns, show="headings", selectmode="browse", height=8)
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.tree_canvas = tk.Canvas(tree_frame)
+        self.tree_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        self.tree_frame_inner = tk.Frame(self.tree_canvas)
+        self.tree_canvas.create_window(
+            (0, 0), window=self.tree_frame_inner, anchor="nw"
+        )
+
+        self.tree = ttk.Treeview(
+            self.tree_frame_inner,
+            columns=self.columns,
+            show="headings",
+            selectmode="browse",
+            height=8,
+            style="Custom.Treeview",
+        )
+        self.tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
 
         vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
         self.tree.configure(yscrollcommand=vsb.set)
 
-        for col in self.columns:
-            self.tree.heading(col, text=col)
-            self.tree.column(col, width=120, anchor="w")
+        for col, label in zip(self.columns, self.column_labels):
+            self.tree.heading(col, text=label)
+            self.tree.column(col, width=200, anchor="w", stretch=True)
 
+        self.tree.tag_configure("oddrow", background="#f5f5f5")
+        self.tree.tag_configure("evenrow", background="white")
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
 
-        # Render initial rows
+        self.tree_frame_inner.update_idletasks()
+        self.tree_canvas.config(scrollregion=self.tree_canvas.bbox("all"))
+
         self.render_rows()
+
+    def create_header(self, title):
+        title_frame = tk.Frame(self)
+        title_frame.pack(fill=tk.X, pady=(5, 2))
+
+        # Title Area
+        tk.Label(title_frame, text=title, font=("Arial", 12, "bold")).pack(
+            side=tk.LEFT, padx=10
+        )
+        # ADD Button
+        tk.Button(title_frame, text="Add", command=self.on_add, width=10).pack(
+            side=tk.RIGHT, padx=10
+        )
+        # EDIT Button
+        self.edit_btn = tk.Button(
+            title_frame, text="Edit", state=tk.DISABLED, command=self.on_edit, width=10
+        )
+        self.edit_btn.pack(side=tk.RIGHT, padx=10)
+
+        # DELETE Button
+        self.delete_btn = tk.Button(
+            title_frame,
+            text="Delete",
+            state=tk.DISABLED,
+            command=self.on_delete,
+            width=10,
+        )
+        self.delete_btn.pack(side=tk.RIGHT, padx=10)
+
+    def create_search_and_filter(self, parent):
+        search_frame = tk.Frame(parent)
+        search_frame.pack(fill=tk.X, pady=(0, 5))
+
+        tk.Label(search_frame, text="Search(all):").pack(side=tk.LEFT, padx=(0, 5))
+        self.search_entry = tk.Entry(search_frame, width=30)
+        self.search_entry.pack(side=tk.LEFT, fill=tk.X)
+        self.search_entry.bind("<KeyRelease>", self.on_search)
+
+        tk.Button(
+            search_frame, text="More Filters", command=self.filter_all, width=10
+        ).pack(side=tk.LEFT, padx=10)
+
+    def configure_styles(self):
+        style = ttk.Style()
+        style.theme_use("default")
+        style.configure(
+            "Custom.Treeview",
+            background="white",
+            foreground="black",
+            rowheight=25,
+            fieldbackground="white",
+            bordercolor="black",
+            borderwidth=1,
+        )
+        style.map(
+            "Custom.Treeview",
+            background=[("selected", "#e1e5f2")],
+            foreground=[("selected", "black")],
+        )
+        style.configure(
+            "Custom.Treeview.Heading",
+            background="black",
+            foreground="white",
+            font=("Arial", 10, "bold"),
+            borderwidth=1,
+        )
+        style.layout(
+            "Custom.Treeview",
+            [
+                (
+                    "Treeview.field",
+                    {
+                        "sticky": "nswe",
+                        "border": "1",
+                        "children": [
+                            (
+                                "Treeview.padding",
+                                {
+                                    "sticky": "nswe",
+                                    "children": [
+                                        ("Treeview.treearea", {"sticky": "nswe"})
+                                    ],
+                                },
+                            )
+                        ],
+                    },
+                )
+            ],
+        )
 
     def render_rows(self):
         self.tree.delete(*self.tree.get_children())
         for idx, row in enumerate(self.filtered_data):
-            values = [row.get(col, '') for col in self.columns]
-            self.tree.insert('', tk.END, iid=str(idx), values=values)
-
-        # Disable buttons after refresh
+            values = [row.get(col, "") for col in self.columns]
+            tag = "evenrow" if idx % 2 == 0 else "oddrow"
+            self.tree.insert("", tk.END, iid=str(idx), values=values, tags=(tag,))
         self.edit_btn.config(state=tk.DISABLED)
         self.delete_btn.config(state=tk.DISABLED)
 
@@ -88,25 +215,38 @@ class TableView(tk.Frame):
         selected = self.tree.selection()
         if not selected:
             return
+        index = int(selected[0])
+        row = self.filtered_data[index]
 
-        if messagebox.askyesno("Confirm Delete", "Are you sure you want to delete this row?"):
-            index = int(selected[0])
-            row = self.filtered_data[index]
-            print(f"Deleting row ID: {row['id']}")
+        row_id = row.get("id", None)
+        if row_id is None:
+            messagebox.showerror(
+                "Delete Error", "No 'id' field found in the selected row."
+            )
+            return
+
+        if messagebox.askyesno(
+            "Confirm Delete", f"Are you sure you want to delete row with ID: {row_id}?"
+        ):
+            self.original_data = [
+                r for r in self.original_data if r.get("id") != row_id
+            ]
+            self.filtered_data = [
+                r for r in self.filtered_data if r.get("id") != row_id
+            ]
+            print(f"Deleted row with ID: {row_id}")
             self.render_rows()
 
     def on_search(self, event=None):
         keyword = self.search_entry.get().strip().lower()
-
         if self.controller_callback:
             self.filtered_data = self.controller_callback(searchAll=keyword)
-  
         else:
             self.filtered_data = [
-                row for row in self.original_data
+                row
+                for row in self.original_data
                 if any(keyword in str(value).lower() for value in row.values())
             ]
-
         self.render_rows()
 
     def on_tree_select(self, event):
@@ -122,40 +262,44 @@ class TableView(tk.Frame):
         filter_window = tk.Toplevel(self)
         filter_window.title("Advanced Filters")
         filter_window.geometry("300x400")
-
         tk.Label(filter_window, text="Enter filter values below:").pack(pady=5)
-
         self.filter_entries = {}
-
-        # Create input fields for each column
         for col in self.columns:
             row_frame = tk.Frame(filter_window)
             row_frame.pack(fill=tk.X, padx=10, pady=5)
-
-            tk.Label(row_frame, text=col + ":", width=12, anchor="w").pack(side=tk.LEFT)
-
-            # Use DateEntry for date fields
+            label_text = (
+                self.column_labels[self.columns.index(col)]
+                if self.column_labels
+                else col
+            )
+            tk.Label(row_frame, text=label_text + ":", width=12, anchor="w").pack(
+                side=tk.LEFT
+            )
             if col in ["created_at", "updated_at"]:
                 entry = DateEntry(row_frame, date_pattern="yyyy-mm-dd", width=16)
             else:
                 entry = tk.Entry(row_frame)
-
             entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
             self.filter_entries[col] = entry
-
-        apply_btn = tk.Button(filter_window, text="Apply Filters", command=self.apply_advanced_filters)
-        apply_btn.pack(pady=10)
-
+        tk.Button(
+            filter_window, text="Apply Filters", command=self.apply_advanced_filters
+        ).pack(pady=10)
 
     def apply_advanced_filters(self):
-        filters = {col: entry.get().strip().lower() for col, entry in self.filter_entries.items() if entry.get().strip()}
-
+        filters = {
+            col: entry.get().strip().lower()
+            for col, entry in self.filter_entries.items()
+            if entry.get().strip()
+        }
         if self.controller_callback:
             self.filtered_data = self.controller_callback(filters=filters)
         else:
             self.filtered_data = [
-                row for row in self.original_data
-                if all(str(row.get(col, '')).lower().find(val) != -1 for col, val in filters.items())
+                row
+                for row in self.original_data
+                if all(
+                    str(row.get(col, "")).lower().find(val) != -1
+                    for col, val in filters.items()
+                )
             ]
-
         self.render_rows()

@@ -1,7 +1,9 @@
-# views/right_panel.py
+#right_panel.py
 import tkinter as tk
+from tkinter import ttk
 from views.table_view import TableView
 import importlib
+from utils.debug import print_r
 
 class RightPanel(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
@@ -11,26 +13,31 @@ class RightPanel(tk.Frame):
 
     def render_default(self):
         self.clear()
-        tk.Label(self, text="Welcome to the Right Panel", bg="#ffffff", font=("Arial", 12)).pack(pady=20)
+        tk.Label(
+            self, text="Welcome to the Right Panel", bg="#ffffff", font=("Arial", 12)
+        ).pack(pady=20)
 
     def render_content(self, nav_name, ctrlName):
         self.clear()
 
         try:
             controller_name = f"{nav_name}_controller"
-            controller_module = importlib.import_module(f"controllers.{controller_name}")
+            controller_module = importlib.import_module(
+                f"controllers.{controller_name}"
+            )
             controller_class = getattr(controller_module, ctrlName)
 
-            # Default fetch (page 1, no filters)
+            # Fetch initial result (e.g., page 1)
             result = controller_class.index(
-                filters={},
-                pagination=True,
-                items_per_page=5,
-                page=1
+                filters={}, pagination=True, items_per_page=5, page=1
             )
 
             if result:
-                columns = list(result[0].__dict__.keys())
+                model_class = result[0].__class__
+                # Get visible fields and labels using model method
+                visible_fields = model_class.get_visible_fields()
+                columns = [field for field, _ in visible_fields]
+                column_labels = [alias for _, alias in visible_fields]
                 data = [obj.__dict__ for obj in result]
 
                 def controller_callback(filters=None, searchAll=None):
@@ -40,7 +47,7 @@ class RightPanel(tk.Frame):
                             pagination=True,
                             items_per_page=5,
                             page=1,
-                            searchAll=searchAll
+                            searchAll=searchAll,
                         )
                         return [obj.__dict__ for obj in filtered]
                     except Exception as err:
@@ -50,16 +57,21 @@ class RightPanel(tk.Frame):
                 table = TableView(
                     self,
                     columns=columns,
+                    column_labels=column_labels,
                     data=data,
                     controller_callback=controller_callback,
-                    title=nav_name.replace("_", " ").title()
+                    title=nav_name.replace("_", " ").title(),
                 )
+                print(nav_name)
                 table.pack(fill=tk.BOTH, expand=True)
+
             else:
                 tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
 
         except Exception as e:
-            tk.Label(self, text=f"Error loading: {str(e)}", fg="red", bg="#ffffff").pack(pady=20)
+            tk.Label(
+                self, text=f"Error loading: {str(e)}", fg="red", bg="#ffffff"
+            ).pack(pady=20)
 
     def clear(self):
         for widget in self.winfo_children():

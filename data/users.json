@@ -1,14 +1,41 @@
 [
-    {
-        "id": 1,
-        "username": "admin",
-        "password": "1234"
-    },
-    {
-        "id": 2,
-        "username": "jean",
-        "password": "mypassword",
-        "created_at": "2025-06-08 13:52:15",
-        "updated_at": "2025-06-08 13:52:15"
-    }
+  {
+    "id": 1,
+    "customId": "000001",
+    "username": "admin",
+    "password": "admin",
+    "email": "admin@admin.com",
+    "access_level": "1",
+    "account_status": "active",
+    "is_locked": false,
+    "temporary_password": null,
+    "created_at": "2025-06-08 13:52:15",
+    "updated_at": "2025-06-08 13:52:15"
+  },
+  {
+    "id": 2,
+    "customId": "000002",
+    "username": "jean",
+    "password": "mypassword",
+    "email": "admin@admin.com",
+    "access_level": "1",
+    "account_status": "active",
+    "is_locked": false,
+    "temporary_password": null,
+    "created_at": "2025-06-08 13:52:15",
+    "updated_at": "2025-06-08 13:52:15"
+  },
+  {
+    "id": 3,
+    "customId": "000002",
+    "username": "staff",
+    "password": "staff",
+    "email": "admin@admin.com",
+    "access_level": "1",
+    "account_status": "active",
+    "is_locked": false,
+    "temporary_password": null,
+    "created_at": "2025-06-08 13:52:15",
+    "updated_at": "2025-06-08 13:52:15"
+  }
 ]
