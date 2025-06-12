@@ -1,0 +1,14 @@
+[
+    {
+        "id": 1,
+        "username": "admin",
+        "password": "1234"
+    },
+    {
+        "id": 2,
+        "username": "jean",
+        "password": "mypassword",
+        "created_at": "2025-06-08 13:52:15",
+        "updated_at": "2025-06-08 13:52:15"
+    }
+]

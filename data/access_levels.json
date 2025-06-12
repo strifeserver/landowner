@@ -1,0 +1,35 @@
+[
+  {
+    "id": 1,
+    "access_level_name": "Administrator",
+    "access_level_code": "admin",
+    "add": "1,2,3,4",
+    "edit": "1,2,3,4",
+    "delete": "1,2,3,4",
+    "export": "1,2,3,4",
+    "import": "1,2,3,4"
+
+  },
+  {
+    "id": 2,
+    "access_level_name": "Staff",
+    "access_level_code": "staff",
+    "view":"1,2,3,4",
+    "add": "1,2,3,4",
+    "edit": "1,2,3,4",
+    "delete": "",
+    "export": "1,2,3,4",
+    "import": ""
+  },
+  {
+    "id": 3,
+    "access_level_name": "Tenant",
+    "access_level_code": "tenant",
+    "view":"",
+    "add": "",
+    "edit": "",
+    "delete": "",
+    "export": "",
+    "import": ""
+  }
+]

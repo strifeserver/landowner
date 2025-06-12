@@ -1,0 +1,34 @@
+[
+  {
+    "id": 1,
+    "menu_name": "Dashboard",
+    "navigation": "dashboard",
+    "controller": "DashboardsController",
+    "pagination": true,
+    "items_per_page": 5
+  },
+  {
+    "id": 2,
+    "menu_name": "Users Management",
+    "navigation": "users",
+    "controller": "UsersController",
+    "pagination": true,
+    "items_per_page": 5
+  },
+  {
+    "id": 3,
+    "menu_name": "Tenant Management",
+    "navigation": "tenant_management",
+    "controller": "TenantsController",
+    "pagination": true,
+    "items_per_page": 5
+  },
+  {
+    "id": 4,
+    "menu_name": "Settings",
+    "navigation": "settings",
+    "controller": "SettingsController",
+    "pagination": true,
+    "items_per_page": 5
+  }
+]
