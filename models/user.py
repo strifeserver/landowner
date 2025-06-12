@@ -3,6 +3,9 @@ import os
 from models.base_model import BaseModel
 from models.access_level import AccessLevel
 from utils.debug import print_r
+from datetime import datetime
+import json
+
 
 DATA_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "data", "users.json"
@@ -42,15 +45,70 @@ class User(BaseModel):
             setattr(self, field, kwargs.get(field))
 
     @classmethod
-    def index(cls, **kwargs):
-        users = super().index(DATA_FILE, **kwargs)
+    def index(cls, filters=None, search=None, pagination=False, items_per_page=10, page=1):
+        with open(DATA_FILE, 'r') as f:
+            data = json.load(f)
+            
+
+        results = []
+
+        for record in data:
+            # Global search
+            if search:
+                if any(search.lower() in str(value).lower() for value in record.values()):
+                    results.append(cls(**record))
+                continue
+
+            # Advanced filters
+            print_r('FILTERS')
+            print_r(filters)
+            if filters:
+                match = True
+                for key, value in filters.items():
+                    match key:
+                        case 'id':
+                            try:
+                                match = match and int(record.get('id', -1)) == int(value)
+                            except ValueError:
+                                match = False
+
+                        case 'created_at_from':
+                            try:
+                                record_date = datetime.strptime(record.get('created_at', ''), '%Y-%m-%d %H:%M:%S')
+                                from_date = datetime.strptime(value, '%Y-%m-%d')
+                                match = match and record_date >= from_date
+                            except ValueError:
+                                match = False
+
+                        case 'created_at_to':
+                            try:
+                                record_date = datetime.strptime(record.get('created_at', ''), '%Y-%m-%d %H:%M:%S')
+                                to_date = datetime.strptime(value, '%Y-%m-%d')
+                                match = match and record_date <= to_date
+                            except ValueError:
+                                match = False
+
+                        case _:
+                            match = match and str(record.get(key, '')).lower() == str(value).lower()
+
+                if match:
+                    results.append(cls(**record))
+                continue
+
+            results.append(cls(**record))
+
+        if pagination:
+            start = (page - 1) * items_per_page
+            end = start + items_per_page
+            results = results[start:end]
+
+        # Add access level names
         access_levels = {
             getattr(al, "id"): getattr(al, "access_level_name")
             for al in AccessLevel.index()
         }
-        # Example: {1: 'Administrator', 2: 'Staff', 3: 'Tenant'}
 
-        for user in users:
+        for user in results:
             level_id = (
                 int(getattr(user, "access_level", 0))
                 if getattr(user, "access_level", None)
@@ -58,7 +116,7 @@ class User(BaseModel):
             )
             setattr(user, "access_level_name", access_levels.get(level_id, "N/A"))
 
-        return users
+        return results
 
     @classmethod
     def store(cls, **kwargs):
