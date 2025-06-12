@@ -13,7 +13,7 @@
     "navigation": "users",
     "controller": "UsersController",
     "pagination": true,
-    "items_per_page": 5
+    "items_per_page": 10
   },
   {
     "id": 3,

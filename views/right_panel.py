@@ -29,7 +29,7 @@ class RightPanel(tk.Frame):
 
             # Fetch initial result (e.g., page 1)
             result = controller_class.index(
-                filters={}, pagination=True, items_per_page=5, page=1
+                filters={}, pagination=True, items_per_page=10, page=1
             )
 
             if result:
@@ -45,7 +45,7 @@ class RightPanel(tk.Frame):
                         filtered = controller_class.index(
                             filters=filters,
                             pagination=True,
-                            items_per_page=5,
+                            items_per_page=10,
                             page=1,
                             searchAll=searchAll,
                         )

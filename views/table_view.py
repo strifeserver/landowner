@@ -66,73 +66,68 @@ class TableView(tk.Frame):
 
 
     def create_treeview_table(self, parent):
-        # Create a container frame inside the parent widget to hold the Treeview and scrollbars
+        # Create a container frame
         tree_frame = tk.Frame(parent)
-        tree_frame.pack(fill=tk.BOTH, expand=False)
+        tree_frame.pack(fill=tk.X, expand=True)
 
-        # Create a canvas widget inside the tree_frame; this helps in managing scrollable content
-        self.tree_canvas = tk.Canvas(tree_frame)
-        self.tree_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Treeview + scrollbars container
+        table_container = tk.Frame(tree_frame)
+        table_container.pack(fill=tk.X, expand=True)
 
-        # Create an inner frame inside the canvas that will contain the actual Treeview widget
-        self.tree_frame_inner = tk.Frame(self.tree_canvas)
-        self.tree_canvas.create_window(
-            (0, 0), window=self.tree_frame_inner, anchor="nw"
-        )  # Place the inner frame at the top-left (northwest) corner
+        # Create vertical scrollbar
+        self.vsb = ttk.Scrollbar(table_container, orient="vertical")
+        self.vsb.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Create vertical and horizontal scrollbars and attach them to the canvas
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
-        hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
-
-        # Connect the scrollbars to the canvas view
-        vsb.config(command=self.tree_canvas.yview)
-        hsb.config(command=self.tree_canvas.xview)
-        self.tree_canvas.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
-
-        # Pack the scrollbars to the right and bottom of the container frame
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        hsb.pack(side=tk.BOTTOM, fill=tk.X)
-
-        # Create the Treeview widget inside the inner frame
+        # Create Treeview widget
         self.tree = ttk.Treeview(
-            self.tree_frame_inner,
-            columns=self.columns,  # Column identifiers (should be a list or tuple)
-            show="headings",  # Show only column headers, no tree hierarchy
-            selectmode="browse",  # Single item selection only
-            height=8,  # Number of rows to display
-            style="Custom.Treeview",  # Custom styling (assumes style defined elsewhere)
+            table_container,
+            columns=self.columns,
+            show="headings",
+            selectmode="browse",
+            height=8,
+            style="Custom.Treeview",
+            yscrollcommand=self.vsb.set,  # link vertical scrollbar
+            xscrollcommand=lambda *args: self.hsb.set(*args)  # link horizontal scrollbar
         )
-        self.tree.pack(fill=tk.BOTH, expand=True)
+        self.tree.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
-        # Configure each column heading and column width
+        # Configure vertical scrollbar to control Treeview
+        self.vsb.config(command=self.tree.yview)
+
+        # Create and pack horizontal scrollbar directly under Treeview
+        self.hsb = ttk.Scrollbar(tree_frame, orient="horizontal", command=self.tree.xview)
+        self.hsb.pack(fill=tk.X)
+
+        # Configure columns
         for col, label in zip(self.columns, self.column_labels):
-            self.tree.heading(col, text=label)  # Set header label
-            self.tree.column(
-                col, width=200, anchor="w", stretch=True
-            )  # Configure column width and alignment
+            self.tree.heading(col, text=label)
+            self.tree.column(col, width=200, anchor="w", stretch=True)
 
-        # Configure alternating row colors for better readability
-        self.tree.tag_configure(
-            "oddrow", background="#f5f5f5"
-        )  # Light gray background for odd rows
-        self.tree.tag_configure(
-            "evenrow", background="white"
-        )  # White background for even rows
+        # Alternating row colors
+        self.tree.tag_configure("oddrow", background="#f5f5f5")
+        self.tree.tag_configure("evenrow", background="white")
 
-        # Bind a callback to the Treeview's selection event
+        # Selection event
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
 
-        # Dynamically adjust the scroll region of the canvas when Treeview is resized
-        self.tree.bind(
-            "<Configure>",
-            lambda e: self.tree_canvas.configure(scrollregion=self.tree_canvas.bbox("all")),
-        )
 
-        # Also update scroll region when the inner frame resizes (e.g., new rows added)
-        self.tree_frame_inner.bind(
-            "<Configure>",
-            lambda e: self.tree_canvas.configure(scrollregion=self.tree_canvas.bbox("all")),
-        )
+
+        
+            
+    # def create_treeview_scrollbars(self, container):
+    #     # Vertical scrollbar on the side of canvas
+    #     vsb = ttk.Scrollbar(container, orient="vertical")
+    #     vsb.config(command=self.tree_canvas.yview)
+    #     self.tree_canvas.configure(yscrollcommand=vsb.set)
+    #     vsb.pack(side=tk.RIGHT, fill=tk.Y)
+
+    #     # Horizontal scrollbar goes under the Treeview, so we just create and assign
+    #     self.hsb = ttk.Scrollbar(self.tree_frame_inner, orient="horizontal")
+    #     self.hsb.config(command=self.tree.xview)
+
+
+        
+
 
     def create_header(self, title):
         title_frame = tk.Frame(self)
