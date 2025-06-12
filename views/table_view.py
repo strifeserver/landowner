@@ -3,6 +3,7 @@ from tkinter import ttk
 from tkinter import messagebox
 from views.table_filters import create_filter_window, apply_advanced_filters
 
+
 class TableView(tk.Frame):
     def __init__(
         self,
