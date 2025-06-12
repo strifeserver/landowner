@@ -1,4 +1,3 @@
-# table_view.py
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
@@ -21,7 +20,7 @@ class TableView(tk.Frame):
         self.controller_callback = controller_callback
         self.original_data = data.copy()
         self.filtered_data = data.copy()
-        
+
         if columns is None:
             if (
                 controller_callback
@@ -52,8 +51,6 @@ class TableView(tk.Frame):
             self.column_labels = column_labels
 
         self.configure_styles()
-
-        # --- Header ---
         self.create_header(title)
 
         # --- Table Container ---
@@ -64,63 +61,95 @@ class TableView(tk.Frame):
         self.create_search_and_filter(table_container)
 
         # --- Treeview Table ---
-        tree_frame = tk.Frame(table_container)
+        self.create_treeview_table(table_container)
+        self.render_rows()
+
+
+    def create_treeview_table(self, parent):
+        # Create a container frame inside the parent widget to hold the Treeview and scrollbars
+        tree_frame = tk.Frame(parent)
         tree_frame.pack(fill=tk.BOTH, expand=False)
 
+        # Create a canvas widget inside the tree_frame; this helps in managing scrollable content
         self.tree_canvas = tk.Canvas(tree_frame)
         self.tree_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+        # Create an inner frame inside the canvas that will contain the actual Treeview widget
         self.tree_frame_inner = tk.Frame(self.tree_canvas)
         self.tree_canvas.create_window(
             (0, 0), window=self.tree_frame_inner, anchor="nw"
-        )
+        )  # Place the inner frame at the top-left (northwest) corner
 
+        # Create vertical and horizontal scrollbars and attach them to the canvas
+        vsb = ttk.Scrollbar(tree_frame, orient="vertical")
+        hsb = ttk.Scrollbar(tree_frame, orient="horizontal")
+
+        # Connect the scrollbars to the canvas view
+        vsb.config(command=self.tree_canvas.yview)
+        hsb.config(command=self.tree_canvas.xview)
+        self.tree_canvas.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+
+        # Pack the scrollbars to the right and bottom of the container frame
+        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+        hsb.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Create the Treeview widget inside the inner frame
         self.tree = ttk.Treeview(
             self.tree_frame_inner,
-            columns=self.columns,
-            show="headings",
-            selectmode="browse",
-            height=8,
-            style="Custom.Treeview",
+            columns=self.columns,  # Column identifiers (should be a list or tuple)
+            show="headings",  # Show only column headers, no tree hierarchy
+            selectmode="browse",  # Single item selection only
+            height=8,  # Number of rows to display
+            style="Custom.Treeview",  # Custom styling (assumes style defined elsewhere)
         )
-        self.tree.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        self.tree.pack(fill=tk.BOTH, expand=True)
 
-        vsb = ttk.Scrollbar(tree_frame, orient="vertical", command=self.tree.yview)
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
-        self.tree.configure(yscrollcommand=vsb.set)
-
+        # Configure each column heading and column width
         for col, label in zip(self.columns, self.column_labels):
-            self.tree.heading(col, text=label)
-            self.tree.column(col, width=200, anchor="w", stretch=True)
+            self.tree.heading(col, text=label)  # Set header label
+            self.tree.column(
+                col, width=200, anchor="w", stretch=True
+            )  # Configure column width and alignment
 
-        self.tree.tag_configure("oddrow", background="#f5f5f5")
-        self.tree.tag_configure("evenrow", background="white")
+        # Configure alternating row colors for better readability
+        self.tree.tag_configure(
+            "oddrow", background="#f5f5f5"
+        )  # Light gray background for odd rows
+        self.tree.tag_configure(
+            "evenrow", background="white"
+        )  # White background for even rows
+
+        # Bind a callback to the Treeview's selection event
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
 
-        self.tree_frame_inner.update_idletasks()
-        self.tree_canvas.config(scrollregion=self.tree_canvas.bbox("all"))
+        # Dynamically adjust the scroll region of the canvas when Treeview is resized
+        self.tree.bind(
+            "<Configure>",
+            lambda e: self.tree_canvas.configure(scrollregion=self.tree_canvas.bbox("all")),
+        )
 
-        self.render_rows()
+        # Also update scroll region when the inner frame resizes (e.g., new rows added)
+        self.tree_frame_inner.bind(
+            "<Configure>",
+            lambda e: self.tree_canvas.configure(scrollregion=self.tree_canvas.bbox("all")),
+        )
 
     def create_header(self, title):
         title_frame = tk.Frame(self)
         title_frame.pack(fill=tk.X, pady=(5, 2))
-
-        # Title Area
         tk.Label(title_frame, text=title, font=("Arial", 12, "bold")).pack(
             side=tk.LEFT, padx=10
         )
-        # ADD Button
+
         tk.Button(title_frame, text="Add", command=self.on_add, width=10).pack(
             side=tk.RIGHT, padx=10
         )
-        # EDIT Button
+
         self.edit_btn = tk.Button(
             title_frame, text="Edit", state=tk.DISABLED, command=self.on_edit, width=10
         )
         self.edit_btn.pack(side=tk.RIGHT, padx=10)
 
-        # DELETE Button
         self.delete_btn = tk.Button(
             title_frame,
             text="Delete",
@@ -217,14 +246,12 @@ class TableView(tk.Frame):
             return
         index = int(selected[0])
         row = self.filtered_data[index]
-
         row_id = row.get("id", None)
         if row_id is None:
             messagebox.showerror(
                 "Delete Error", "No 'id' field found in the selected row."
             )
             return
-
         if messagebox.askyesno(
             "Confirm Delete", f"Are you sure you want to delete row with ID: {row_id}?"
         ):
