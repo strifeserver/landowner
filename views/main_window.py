@@ -35,15 +35,18 @@ class MainWindow:
     def load_navigation(self, parent_frame):
         menu_items = Navigation.index()
         for item in menu_items:
+            
+            print(item)
+            
             btn = tk.Button(
                 parent_frame,
                 text=item.menu_name,
                 width=20,
                 command=lambda name=item.navigation,
-                ctrl=item.controller: self.on_menu_click(name, ctrl),
+                ctrl=item.controller, navigation_name=item.menu_name: self.on_menu_click(name, ctrl, navigation_name),
             )
             btn.pack(pady=5)
 
-    def on_menu_click(self, menu_name, controller_name):
+    def on_menu_click(self, name, controller_name, navigation_name):
         # Instead of messagebox, update the right panel
-        self.right_panel.render_content(menu_name, controller_name)
+        self.right_panel.render_content(name, controller_name, navigation_name)

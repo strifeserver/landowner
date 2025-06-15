@@ -2,6 +2,7 @@ import tkinter as tk
 from datetime import datetime, timedelta
 from views.table_date_filters import setup_date_filters
 
+
 def create_filter_window(self):
     # Avoid multiple open windows
     if hasattr(self, "filter_window") and self.filter_window.winfo_exists():
@@ -12,7 +13,9 @@ def create_filter_window(self):
     self.filter_window.title("Advanced Filters")
     self.filter_window.geometry("300x650")
     self.filter_window.transient(self)
-    self.filter_window.protocol("WM_DELETE_WINDOW", lambda: self.filter_window.destroy())
+    self.filter_window.protocol(
+        "WM_DELETE_WINDOW", lambda: self.filter_window.destroy()
+    )
 
     tk.Label(self.filter_window, text="Enter filter values below:").pack(pady=5)
     self.filter_entries = {}
@@ -25,7 +28,9 @@ def create_filter_window(self):
         )
         row_frame = tk.Frame(self.filter_window)
         row_frame.pack(fill=tk.X, padx=10, pady=5)
-        tk.Label(row_frame, text=f"{label_text}:", width=12, anchor="w").pack(side=tk.LEFT)
+        tk.Label(row_frame, text=f"{label_text}:", width=12, anchor="w").pack(
+            side=tk.LEFT
+        )
         entry = tk.Entry(row_frame)
         entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.filter_entries[col] = entry
@@ -36,8 +41,6 @@ def create_filter_window(self):
     tk.Button(
         self.filter_window, text="Apply Filters", command=self.apply_advanced_filters
     ).pack(pady=10)
-
-
 
 
 def apply_advanced_filters(self):

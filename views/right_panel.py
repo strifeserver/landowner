@@ -17,7 +17,7 @@ class RightPanel(tk.Frame):
             self, text="Welcome to the Right Panel", bg="#ffffff", font=("Arial", 12)
         ).pack(pady=20)
 
-    def render_content(self, nav_name, ctrlName):
+    def render_content(self, nav_name, ctrlName, navigation_name):
         self.clear()
 
         try:
@@ -60,9 +60,8 @@ class RightPanel(tk.Frame):
                     column_labels=column_labels,
                     data=data,
                     controller_callback=controller_callback,
-                    title=nav_name.replace("_", " ").title(),
+                    title=navigation_name,
                 )
-                print(nav_name)
                 table.pack(fill=tk.BOTH, expand=True)
 
             else:

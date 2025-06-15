@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from views.table_filters import create_filter_window, apply_advanced_filters
-
+from views.table.treeview_styles import apply_treeview_style
 
 class TableView(tk.Frame):
     def __init__(
@@ -151,52 +151,7 @@ class TableView(tk.Frame):
         ).pack(side=tk.LEFT, padx=10)
 
     def configure_styles(self):
-        style = ttk.Style()
-        style.theme_use("default")
-        style.configure(
-            "Custom.Treeview",
-            background="white",
-            foreground="black",
-            rowheight=25,
-            fieldbackground="white",
-            bordercolor="black",
-            borderwidth=1,
-        )
-        style.map(
-            "Custom.Treeview",
-            background=[("selected", "#e1e5f2")],
-            foreground=[("selected", "black")],
-        )
-        style.configure(
-            "Custom.Treeview.Heading",
-            background="black",
-            foreground="white",
-            font=("Arial", 10, "bold"),
-            borderwidth=1,
-        )
-        style.layout(
-            "Custom.Treeview",
-            [
-                (
-                    "Treeview.field",
-                    {
-                        "sticky": "nswe",
-                        "border": "1",
-                        "children": [
-                            (
-                                "Treeview.padding",
-                                {
-                                    "sticky": "nswe",
-                                    "children": [
-                                        ("Treeview.treearea", {"sticky": "nswe"})
-                                    ],
-                                },
-                            )
-                        ],
-                    },
-                )
-            ],
-        )
+        apply_treeview_style()
 
     def render_rows(self):
         self.tree.delete(*self.tree.get_children())
