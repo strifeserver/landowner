@@ -1,9 +1,7 @@
-# models/user.py
-
 import os
-import sqlite3
 from datetime import datetime
 from models.base_model import BaseModel
+from models.access_level import AccessLevel  # <-- make sure this import exists
 
 DB_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "data", "data.db"
@@ -14,14 +12,42 @@ class User(BaseModel):
     table_name = "users"
 
     field_definitions = {
-        "id": {"alias": "ID", "is_hidden": False, "order": 0},
-        "customId": {"alias": "Employee ID", "is_hidden": False, "order": 1},
-        "username": {"alias": "Username", "is_hidden": False, "order": 2},
+        "id": {"alias": "ID", "is_hidden": False, "order": 0, "editable": False},
+        "customId": {
+            "alias": "Employee ID",
+            "is_hidden": False,
+            "order": 1,
+            "editable": True,
+        },
+        "username": {
+            "alias": "Username",
+            "is_hidden": False,
+            "order": 2,
+            "editable": True,
+        },
         "password": {"alias": "Password", "is_hidden": True, "order": 3},
-        "email": {"alias": "Email", "is_hidden": False, "order": 4},
-        "access_level": {"alias": "Access Level", "is_hidden": True, "order": 5},
-        "account_status": {"alias": "Account Status", "is_hidden": False, "order": 6},
-        "is_locked": {"alias": "Locked", "is_hidden": False, "order": 7},
+        "email": {"alias": "Email", "is_hidden": False, "order": 4, "editable": True},
+        "access_level": {
+            "alias": "Access Level",
+            "is_hidden": True,
+            "order": 5,
+            "editable": True,
+            "options": [],  # Will be populated dynamically
+        },
+        "account_status": {
+            "alias": "Account Status",
+            "is_hidden": False,
+            "order": 6,
+            "options": ["active", "inactive", "pending"],
+            "editable": True,
+        },
+        "is_locked": {
+            "alias": "Locked",
+            "is_hidden": False,
+            "order": 7,
+            "options": [True, False],
+            "editable": True,
+        },
         "temporary_password": {
             "alias": "Temporary Password",
             "is_hidden": True,
@@ -31,6 +57,7 @@ class User(BaseModel):
             "alias": "Access Level",
             "is_hidden": False,
             "order": 9,
+            "origin_field": "access_level",
         },
         "created_at": {"alias": "Date Created", "is_hidden": False, "order": 10},
         "updated_at": {"alias": "Date Updated", "is_hidden": False, "order": 11},
@@ -88,3 +115,19 @@ class User(BaseModel):
     @classmethod
     def get_ordered_field_keys(cls):
         return [key for key, _ in cls.get_visible_fields()]
+
+    @classmethod
+    def get_dynamic_field_definitions(cls):
+        """Injects access_level options dynamically based on AccessLevel.index()"""
+        field_defs = dict(cls.field_definitions)
+
+        try:
+            access_levels = AccessLevel.index()
+            field_defs["access_level_name"]["options"] = [
+                {"label": al.access_level_name, "value": al.id} for al in access_levels
+            ]
+        except Exception as e:
+            print("Failed to load access level options:", e)
+            field_defs["access_level_name"]["options"] = []
+
+        return field_defs

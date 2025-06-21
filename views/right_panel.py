@@ -20,9 +20,7 @@ class RightPanel(tk.Frame):
 
     def render_content(self, nav_name, ctrlName, navigation_name):
         self.clear()
-        print('nav_name',nav_name)
-        print('ctrlName',ctrlName)
-        print('navigation_name',navigation_name)
+
         try:
             controller_name = f"{nav_name}_controller"
             controller_module = importlib.import_module(
@@ -73,9 +71,9 @@ class RightPanel(tk.Frame):
                 tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
 
         except Exception as e:
-            print("=== DEBUG: Raw controller_class.index() result ===")
-            from pprint import pprint
-            pprint([obj.__dict__ for obj in result])
+            # print("=== DEBUG: Raw controller_class.index() result ===")
+            # from pprint import pprint
+            # pprint([obj.__dict__ for obj in result])
             tk.Label(
                 self, text=f"Error loading: {str(e)}", fg="red", bg="#ffffff"
             ).pack(pady=20)

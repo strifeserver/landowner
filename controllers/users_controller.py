@@ -16,7 +16,7 @@ class UsersController:
 
     @staticmethod
     def create():
-        field_definitions = User.field_definitions
+        field_definitions = User.get_dynamic_field_definitions()
         return field_definitions
         
     @staticmethod
@@ -33,6 +33,7 @@ class UsersController:
     @staticmethod
     def update(id, data):
         print('Users Controller Update')
+        print(data)
         
     @staticmethod
     def destroy(id):
