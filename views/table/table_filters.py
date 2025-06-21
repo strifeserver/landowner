@@ -1,6 +1,6 @@
 import tkinter as tk
 from datetime import datetime, timedelta
-from views.table_date_filters import setup_date_filters
+from views.table.table_date_filters import setup_date_filters
 
 
 def create_filter_window(self):

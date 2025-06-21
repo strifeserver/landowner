@@ -1,7 +1,7 @@
 #right_panel.py
 import tkinter as tk
 from tkinter import ttk
-from views.table_view import TableView
+from views.table.table_view import TableView
 import importlib
 from utils.debug import print_r
 

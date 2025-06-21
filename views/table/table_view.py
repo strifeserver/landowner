@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
-from views.table_filters import create_filter_window, apply_advanced_filters
+from views.table.table_filters import create_filter_window, apply_advanced_filters
 from views.table.treeview_styles import apply_treeview_style
 
 class TableView(tk.Frame):
