@@ -1,19 +1,18 @@
-#user.py
+# models/user.py
+
 import os
-from models.base_model import BaseModel
-from models.access_level import AccessLevel
-from utils.debug import print_r
+import sqlite3
 from datetime import datetime
-import json
+from models.base_model import BaseModel
 
-
-DATA_FILE = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "data", "users.json"
+DB_PATH = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "data", "data.db"
 )
 
 
 class User(BaseModel):
-    # Field configuration with alias, visibility, and display order
+    table_name = "users"
+
     field_definitions = {
         "id": {"alias": "ID", "is_hidden": False, "order": 0},
         "customId": {"alias": "Employee ID", "is_hidden": False, "order": 1},
@@ -29,7 +28,7 @@ class User(BaseModel):
             "order": 8,
         },
         "access_level_name": {
-            "alias": "Access Level Name",
+            "alias": "Access Level",
             "is_hidden": False,
             "order": 9,
         },
@@ -37,94 +36,46 @@ class User(BaseModel):
         "updated_at": {"alias": "Date Updated", "is_hidden": False, "order": 11},
     }
 
-    # Set the fields dynamically from field_definitions
-    fields = list(field_definitions.keys())
+    # Only DB columns
+    fields = [
+        "id",
+        "customId",
+        "username",
+        "password",
+        "email",
+        "access_level",
+        "account_status",
+        "is_locked",
+        "temporary_password",
+        "created_at",
+        "updated_at",
+    ]
 
     def __init__(self, **kwargs):
         for field in self.fields:
             setattr(self, field, kwargs.get(field))
 
     @classmethod
-    def index(cls, filters=None, search=None, pagination=False, items_per_page=10, page=1):
-        with open(DATA_FILE, 'r') as f:
-            data = json.load(f)
-            
-
-        results = []
-
-        for record in data:
-            # Global search
-            if search:
-                if any(search.lower() in str(value).lower() for value in record.values()):
-                    results.append(cls(**record))
-                continue
-
-            # Advanced filters
-            print_r('FILTERS')
-            print_r(filters)
-            if filters:
-                match = True
-                for key, value in filters.items():
-                    match key:
-                        case 'id':
-                            try:
-                                match = match and int(record.get('id', -1)) == int(value)
-                            except ValueError:
-                                match = False
-
-                        case 'created_at_from':
-                            try:
-                                record_date = datetime.strptime(record.get('created_at', ''), '%Y-%m-%d %H:%M:%S')
-                                from_date = datetime.strptime(value, '%Y-%m-%d')
-                                match = match and record_date >= from_date
-                            except ValueError:
-                                match = False
-
-                        case 'created_at_to':
-                            try:
-                                record_date = datetime.strptime(record.get('created_at', ''), '%Y-%m-%d %H:%M:%S')
-                                to_date = datetime.strptime(value, '%Y-%m-%d')
-                                match = match and record_date <= to_date
-                            except ValueError:
-                                match = False
-
-                        case _:
-                            match = match and str(record.get(key, '')).lower() == str(value).lower()
-
-                if match:
-                    results.append(cls(**record))
-                continue
-
-            results.append(cls(**record))
-
-        if pagination:
-            start = (page - 1) * items_per_page
-            end = start + items_per_page
-            results = results[start:end]
-
-        # Add access level names
-        access_levels = {
-            getattr(al, "id"): getattr(al, "access_level_name")
-            for al in AccessLevel.index()
-        }
-
-        for user in results:
-            level_id = (
-                int(getattr(user, "access_level", 0))
-                if getattr(user, "access_level", None)
-                else 0
-            )
-            setattr(user, "access_level_name", access_levels.get(level_id, "N/A"))
-
-        return results
+    def store(cls, **kwargs):
+        return super().store_sqlite(DB_PATH, cls.table_name, **kwargs)
 
     @classmethod
-    def store(cls, **kwargs):
-        return super().store(DATA_FILE, **kwargs)
+    def index(
+        cls, filters=None, search=None, pagination=False, items_per_page=10, page=1
+    ):
+        return super().index_sqlite(
+            DB_PATH,
+            cls.table_name,
+            cls.fields,
+            filters,
+            search,
+            pagination,
+            items_per_page,
+            page,
+        )
 
     @classmethod
     def get_visible_fields(cls):
-        """Returns a list of (field_name, alias) for visible fields in order."""
         return sorted(
             [
                 (key, val["alias"])
@@ -134,8 +85,6 @@ class User(BaseModel):
             key=lambda x: cls.field_definitions[x[0]].get("order", 999),
         )
 
-    # Optional: for debugging or table header generation
     @classmethod
     def get_ordered_field_keys(cls):
-        """Return just the field names (keys) in visible order"""
         return [key for key, _ in cls.get_visible_fields()]

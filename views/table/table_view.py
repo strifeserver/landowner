@@ -1,8 +1,11 @@
+# table_view.py
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
 from views.table.table_filters import create_filter_window, apply_advanced_filters
 from views.table.treeview_styles import apply_treeview_style
+from views.table.table_buttons import on_add, on_edit, on_delete
+
 
 class TableView(tk.Frame):
     def __init__(
@@ -119,20 +122,22 @@ class TableView(tk.Frame):
             side=tk.LEFT, padx=10
         )
 
-        tk.Button(title_frame, text="Add", command=self.on_add, width=10).pack(
+        tk.Button(title_frame, text="Add", command=lambda: on_add(self), width=10).pack(
             side=tk.RIGHT, padx=10
         )
-
         self.edit_btn = tk.Button(
-            title_frame, text="Edit", state=tk.DISABLED, command=self.on_edit, width=10
+            title_frame,
+            text="Edit",
+            state=tk.DISABLED,
+            command=lambda: on_edit(self),
+            width=10,
         )
         self.edit_btn.pack(side=tk.RIGHT, padx=10)
-
         self.delete_btn = tk.Button(
             title_frame,
             text="Delete",
             state=tk.DISABLED,
-            command=self.on_delete,
+            command=lambda: on_delete(self),
             width=10,
         )
         self.delete_btn.pack(side=tk.RIGHT, padx=10)
@@ -164,6 +169,7 @@ class TableView(tk.Frame):
 
     def on_add(self):
         print("Add button clicked.")
+        self.trigger_controller_method("create")
 
     def on_edit(self):
         selected = self.tree.selection()
@@ -171,7 +177,8 @@ class TableView(tk.Frame):
             return
         index = int(selected[0])
         row = self.filtered_data[index]
-        print(f"Editing row: {row}")
+        row_id = row.get("id")
+        self.trigger_controller_method("edit", id=row_id)
 
     def on_delete(self):
         selected = self.tree.selection()
@@ -194,6 +201,7 @@ class TableView(tk.Frame):
             self.filtered_data = [
                 r for r in self.filtered_data if r.get("id") != row_id
             ]
+            self.trigger_controller_method("destroy", id=row_id)
             print(f"Deleted row with ID: {row_id}")
             self.render_rows()
 
@@ -223,3 +231,30 @@ class TableView(tk.Frame):
 
     def apply_advanced_filters(self):
         apply_advanced_filters(self)
+
+    def trigger_controller_method(self, method_name, id=None, data=None):
+        if not hasattr(self, 'controller_class'):
+            print("Controller class not set.")
+            return
+
+        method = getattr(self.controller_class, method_name, None)
+        if not callable(method):
+            print(f"Method '{method_name}' not found in controller.")
+            return
+
+        try:
+            if method_name == "create":
+                return method()
+            elif method_name == "store":
+                return method(data)
+            elif method_name == "edit":
+                return method(id)
+            elif method_name == "update":
+                return method(id, data)
+            elif method_name == "destroy":
+                return method(id)
+            else:
+                print(f"Unsupported method '{method_name}'")
+        except TypeError as e:
+            print(f"Error calling '{method_name}': {e}")
+

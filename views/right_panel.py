@@ -1,9 +1,10 @@
-#right_panel.py
+# right_panel.py
 import tkinter as tk
 from tkinter import ttk
 from views.table.table_view import TableView
 import importlib
 from utils.debug import print_r
+
 
 class RightPanel(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
@@ -19,7 +20,9 @@ class RightPanel(tk.Frame):
 
     def render_content(self, nav_name, ctrlName, navigation_name):
         self.clear()
-
+        print('nav_name',nav_name)
+        print('ctrlName',ctrlName)
+        print('navigation_name',navigation_name)
         try:
             controller_name = f"{nav_name}_controller"
             controller_module = importlib.import_module(
@@ -31,6 +34,7 @@ class RightPanel(tk.Frame):
             result = controller_class.index(
                 filters={}, pagination=True, items_per_page=10, page=1
             )
+
 
             if result:
                 model_class = result[0].__class__
@@ -63,11 +67,15 @@ class RightPanel(tk.Frame):
                     title=navigation_name,
                 )
                 table.pack(fill=tk.BOTH, expand=True)
+                table.controller_class = controller_class  # <- ADD this line
 
             else:
                 tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
 
         except Exception as e:
+            print("=== DEBUG: Raw controller_class.index() result ===")
+            from pprint import pprint
+            pprint([obj.__dict__ for obj in result])
             tk.Label(
                 self, text=f"Error loading: {str(e)}", fg="red", bg="#ffffff"
             ).pack(pady=20)
