@@ -193,16 +193,22 @@ class TableView(tk.Frame):
             values = [row.get(col, "") for col in self.columns]
             tag = "evenrow" if idx % 2 == 0 else "oddrow"
             self.tree.insert("", tk.END, iid=str(idx), values=values, tags=(tag,))
+
         self.edit_btn.config(state=tk.DISABLED)
         self.delete_btn.config(state=tk.DISABLED)
 
-        self.page_label.config(text=f"Page {self.current_page}")
-        self.prev_btn.config(state=tk.NORMAL if self.current_page > 1 else tk.DISABLED)
-        self.next_btn.config(
-            state=tk.NORMAL
-            if len(self.filtered_data) == self.items_per_page
-            else tk.DISABLED
+        showing = len(self.filtered_data)
+        total = getattr(self, "total_rows", showing)
+        total_pages = getattr(self, "total_pages", 1)
+
+        self.page_label.config(
+            text=f"Page {self.current_page} / {total_pages}   (Showing {showing} of {total} rows)"
         )
+
+        # Enable/disable navigation buttons
+        self.prev_btn.config(state=tk.NORMAL if self.current_page > 1 else tk.DISABLED)
+        self.next_btn.config(state=tk.NORMAL if self.current_page < total_pages else tk.DISABLED)
+
 
     def load_previous_page(self):
         if self.current_page > 1:

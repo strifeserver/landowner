@@ -8,13 +8,16 @@ from services.users_service import UsersService
 class UsersController:
     @staticmethod
     def index(filters=None, pagination=False, items_per_page=5, page=1, searchAll=None):
-        return UsersService.get_users(
+        
+        indexData = UsersService.get_users(
             filters=filters or {},
             pagination=pagination,
             items_per_page=items_per_page,
             page=page,
             search=searchAll,
         )
+        
+        return indexData
 
     @staticmethod
     def create():

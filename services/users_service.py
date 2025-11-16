@@ -6,23 +6,19 @@ from models.user import User
 
 class UsersService:
     @staticmethod
-    def get_users(
-        filters=None, pagination=False, items_per_page=5, page=1, search=None
-    ):
+    def get_users(filters=None, pagination=False, items_per_page=5, page=1, search=None):
         results = UsersRepository.find_all(filters, search)
         results = UsersRepository.add_access_level_names(results)
 
-        # Overwrite values in each model instance
+        # Process fields
         for row in results:
             for field_key, field_def in User.field_definitions.items():
                 if field_key in row.__dict__:
                     value = row.__dict__[field_key]
 
-                    # Capitalize first letter
                     if field_def.get("capitalize1st") and isinstance(value, str):
                         row.__dict__[field_key] = value[:1].upper() + value[1:]
 
-                    # Substitute value display
                     if "subtitute_table_values" in field_def:
                         value_map = {
                             entry["value"]: entry["label"]
@@ -30,12 +26,23 @@ class UsersService:
                         }
                         row.__dict__[field_key] = value_map.get(value, value)
 
+        total_rows = len(results)
+        total_pages = (total_rows + items_per_page - 1) // items_per_page
+        last_page = total_pages
+
         if pagination:
             start = (page - 1) * items_per_page
             end = start + items_per_page
-            return results[start:end]
-
-        return results
+            page_data = results[start:end]
+        else:
+            page_data = results
+        
+        return {
+            "data": page_data,
+            "total_rows": total_rows,
+            "total_pages": total_pages,
+            "last_page": last_page,
+        }
 
     @staticmethod
     def get_user(id):
