@@ -109,9 +109,16 @@ class TableView(tk.Frame):
         self.next_btn = tk.Button(nav_frame, text="Next", command=self.load_next_page)
         self.next_btn.pack(side=tk.LEFT)
 
+        #Loop Columns
         for col, label in zip(self.columns, self.column_labels):
             self.tree.heading(col, text=label)
-            self.tree.column(col, width=200, anchor="w", stretch=True)
+            if col.lower() == "id":
+                self.tree.column(col, width=50, anchor="center", stretch=False)
+            elif col.lower() == "customid":
+                self.tree.column(col, width=100, anchor="center", stretch=False)
+            else:
+                self.tree.column(col, width=150, anchor="w", stretch=True)
+        #Loop Columns
 
         self.tree.tag_configure("oddrow", background="#f5f5f5")
         self.tree.tag_configure("evenrow", background="white")
@@ -154,6 +161,7 @@ class TableView(tk.Frame):
         tk.Button(
             search_frame, text="More Filters", command=self.filter_all, width=10
         ).pack(side=tk.LEFT, padx=10)
+        tk.Button(search_frame, text="Refresh", command=self.refresh_table, width=10).pack(side=tk.LEFT, padx=10)
 
     def create_pagination_controls(self, parent):
         nav_frame = tk.Frame(parent)
@@ -252,6 +260,14 @@ class TableView(tk.Frame):
 
     def filter_all(self):
         create_filter_window(self)
+        
+    def refresh_table(self):
+        print('Refresh Table')
+        self.current_page = 1     # optional, reset pagination
+        self.search_entry.delete(0, tk.END)  # optional, clear search
+        self.render_rows()
+        
+        
 
     def apply_advanced_filters(self):
         apply_advanced_filters(self)

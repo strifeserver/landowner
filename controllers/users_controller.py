@@ -1,6 +1,7 @@
 # controllers/users_controller.py
 from models.user import User
-from requests.user_request import UserRequest
+# from ..requests.user_request import UserRequest
+from request_objects.user_request import UserRequest
 from services.users_service import UsersService
 
 
