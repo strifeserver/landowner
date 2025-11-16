@@ -42,13 +42,13 @@ class RightPanel(tk.Frame):
                 column_labels = [alias for _, alias in visible_fields]
                 data = [obj.__dict__ for obj in result]
 
-                def controller_callback(filters=None, searchAll=None):
+                def controller_callback(filters=None, searchAll=None, page=1):
                     try:
                         filtered = controller_class.index(
                             filters=filters,
                             pagination=True,
                             items_per_page=10,
-                            page=1,
+                            page=page,
                             searchAll=searchAll,
                         )
                         return [obj.__dict__ for obj in filtered]

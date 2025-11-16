@@ -36,8 +36,6 @@ class MainWindow:
         menu_items = Navigation.index()
         for item in menu_items:
             
-            print(item)
-            
             btn = tk.Button(
                 parent_frame,
                 text=item.menu_name,

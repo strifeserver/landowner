@@ -1,7 +1,8 @@
 import sqlite3
 from datetime import datetime
+
 class BaseModel:
-    # Keep your JSON methods if needed...
+    # Add your JSON helpers here if needed...
 
     @classmethod
     def index_sqlite(
@@ -68,3 +69,32 @@ class BaseModel:
 
         kwargs["id"] = last_id
         return cls(**kwargs)
+
+    @classmethod
+    def update_sqlite(cls, db_path, table_name, row_id, **kwargs):
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        kwargs["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        set_clause = ", ".join(f"{key}=?" for key in kwargs.keys())
+        values = list(kwargs.values())
+        values.append(row_id)
+
+        query = f"UPDATE {table_name} SET {set_clause} WHERE id = ?"
+        cursor.execute(query, values)
+        conn.commit()
+        conn.close()
+
+        return True
+
+    @classmethod
+    def destroy_sqlite(cls, db_path, table_name, row_id):
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        query = f"DELETE FROM {table_name} WHERE id=?"
+        cursor.execute(query, (row_id,))
+        conn.commit()
+        conn.close()
+
+        return True

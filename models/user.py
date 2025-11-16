@@ -1,3 +1,4 @@
+# models/user.py
 import os
 from datetime import datetime
 from models.base_model import BaseModel
@@ -40,6 +41,7 @@ class User(BaseModel):
             "order": 6,
             "options": ["active", "inactive", "pending"],
             "editable": True,
+            "capitalize1st": True,
         },
         "is_locked": {
             "alias": "Locked",
@@ -47,6 +49,7 @@ class User(BaseModel):
             "order": 7,
             "options": [True, False],
             "editable": True,
+            "subtitute_table_values": [{"label":"Enabled","value":True},{"label":"Disabled","value":False}]
         },
         "temporary_password": {
             "alias": "Temporary Password",
@@ -85,6 +88,14 @@ class User(BaseModel):
     @classmethod
     def store(cls, **kwargs):
         return super().store_sqlite(DB_PATH, cls.table_name, **kwargs)
+
+    @classmethod
+    def update(cls, id, **kwargs):
+        return super().update_sqlite(DB_PATH, cls.table_name, id, **kwargs)
+
+    @classmethod
+    def destroy(cls, id):
+        return super().destroy_sqlite(DB_PATH, cls.table_name, id)
 
     @classmethod
     def index(

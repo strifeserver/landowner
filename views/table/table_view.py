@@ -1,4 +1,3 @@
-# table_view.py
 import tkinter as tk
 from tkinter import ttk
 from tkinter import messagebox
@@ -23,6 +22,9 @@ class TableView(tk.Frame):
         self.controller_callback = controller_callback
         self.original_data = data.copy()
         self.filtered_data = data.copy()
+
+        self.current_page = 1
+        self.items_per_page = 10
 
         if columns is None:
             if (
@@ -60,26 +62,20 @@ class TableView(tk.Frame):
         table_container = tk.Frame(self)
         table_container.pack(fill=tk.BOTH, expand=True, padx=5, pady=2)
 
-        # --- Search & Filter ---
         self.create_search_and_filter(table_container)
-
-        # --- Treeview Table ---
         self.create_treeview_table(table_container)
         self.render_rows()
 
     def create_treeview_table(self, parent):
-        # Create a container frame
         tree_frame = tk.Frame(parent)
         tree_frame.pack(fill=tk.X, expand=False)
-        # Treeview + scrollbars container
+
         table_container = tk.Frame(tree_frame)
         table_container.pack(fill=tk.X, expand=True)
 
-        # Create vertical scrollbar
         self.vsb = ttk.Scrollbar(table_container, orient="vertical")
         self.vsb.pack(side=tk.RIGHT, fill=tk.Y)
 
-        # Create Treeview widget
         self.tree = ttk.Treeview(
             table_container,
             columns=self.columns,
@@ -87,32 +83,38 @@ class TableView(tk.Frame):
             selectmode="browse",
             height=8,
             style="Custom.Treeview",
-            yscrollcommand=self.vsb.set,  # link vertical scrollbar
-            xscrollcommand=lambda *args: self.hsb.set(
-                *args
-            ),  # link horizontal scrollbar
+            yscrollcommand=self.vsb.set,
+            xscrollcommand=lambda *args: self.hsb.set(*args),
         )
         self.tree.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        # Configure vertical scrollbar to control Treeview
         self.vsb.config(command=self.tree.yview)
 
-        # Create and pack horizontal scrollbar directly under Treeview
         self.hsb = ttk.Scrollbar(
             tree_frame, orient="horizontal", command=self.tree.xview
         )
         self.hsb.pack(fill=tk.X)
 
-        # Configure columns
+        # Pagination Controls (moved here)
+        nav_frame = tk.Frame(tree_frame)
+        nav_frame.pack(fill=tk.X, pady=(5, 10))
+
+        self.prev_btn = tk.Button(
+            nav_frame, text="Previous", command=self.load_previous_page
+        )
+        self.prev_btn.pack(side=tk.LEFT, padx=10)
+
+        self.page_label = tk.Label(nav_frame, text=f"Page {self.current_page}")
+        self.page_label.pack(side=tk.LEFT, padx=5)
+
+        self.next_btn = tk.Button(nav_frame, text="Next", command=self.load_next_page)
+        self.next_btn.pack(side=tk.LEFT)
+
         for col, label in zip(self.columns, self.column_labels):
             self.tree.heading(col, text=label)
             self.tree.column(col, width=200, anchor="w", stretch=True)
 
-        # Alternating row colors
         self.tree.tag_configure("oddrow", background="#f5f5f5")
         self.tree.tag_configure("evenrow", background="white")
-
-        # Selection event
         self.tree.bind("<<TreeviewSelect>>", self.on_tree_select)
 
     def create_header(self, title):
@@ -145,20 +147,39 @@ class TableView(tk.Frame):
     def create_search_and_filter(self, parent):
         search_frame = tk.Frame(parent)
         search_frame.pack(fill=tk.X, pady=(0, 5))
-
         tk.Label(search_frame, text="Search(all):").pack(side=tk.LEFT, padx=(0, 5))
         self.search_entry = tk.Entry(search_frame, width=30)
         self.search_entry.pack(side=tk.LEFT, fill=tk.X)
         self.search_entry.bind("<KeyRelease>", self.on_search)
-
         tk.Button(
             search_frame, text="More Filters", command=self.filter_all, width=10
         ).pack(side=tk.LEFT, padx=10)
+
+    def create_pagination_controls(self, parent):
+        nav_frame = tk.Frame(parent)
+        nav_frame.pack(fill=tk.X, pady=(5, 10))
+
+        self.prev_btn = tk.Button(
+            nav_frame, text="Previous", command=self.load_previous_page
+        )
+        self.prev_btn.pack(side=tk.LEFT, padx=10)
+
+        self.page_label = tk.Label(nav_frame, text=f"Page {self.current_page}")
+        self.page_label.pack(side=tk.LEFT, padx=5)
+
+        self.next_btn = tk.Button(nav_frame, text="Next", command=self.load_next_page)
+        self.next_btn.pack(side=tk.LEFT)
 
     def configure_styles(self):
         apply_treeview_style()
 
     def render_rows(self):
+        if self.controller_callback:
+            self.filtered_data = self.controller_callback(
+                searchAll=self.search_entry.get().strip().lower(),
+                page=self.current_page,
+            )
+
         self.tree.delete(*self.tree.get_children())
         for idx, row in enumerate(self.filtered_data):
             values = [row.get(col, "") for col in self.columns]
@@ -167,8 +188,24 @@ class TableView(tk.Frame):
         self.edit_btn.config(state=tk.DISABLED)
         self.delete_btn.config(state=tk.DISABLED)
 
+        self.page_label.config(text=f"Page {self.current_page}")
+        self.prev_btn.config(state=tk.NORMAL if self.current_page > 1 else tk.DISABLED)
+        self.next_btn.config(
+            state=tk.NORMAL
+            if len(self.filtered_data) == self.items_per_page
+            else tk.DISABLED
+        )
+
+    def load_previous_page(self):
+        if self.current_page > 1:
+            self.current_page -= 1
+            self.render_rows()
+
+    def load_next_page(self):
+        self.current_page += 1
+        self.render_rows()
+
     def on_add(self):
-        print("Add button clicked.")
         self.trigger_controller_method("create")
 
     def on_edit(self):
@@ -202,29 +239,16 @@ class TableView(tk.Frame):
                 r for r in self.filtered_data if r.get("id") != row_id
             ]
             self.trigger_controller_method("destroy", id=row_id)
-            print(f"Deleted row with ID: {row_id}")
             self.render_rows()
 
     def on_search(self, event=None):
-        keyword = self.search_entry.get().strip().lower()
-        if self.controller_callback:
-            self.filtered_data = self.controller_callback(searchAll=keyword)
-        else:
-            self.filtered_data = [
-                row
-                for row in self.original_data
-                if any(keyword in str(value).lower() for value in row.values())
-            ]
+        self.current_page = 1
         self.render_rows()
 
     def on_tree_select(self, event):
         selected = self.tree.selection()
-        if selected:
-            self.edit_btn.config(state=tk.NORMAL)
-            self.delete_btn.config(state=tk.NORMAL)
-        else:
-            self.edit_btn.config(state=tk.DISABLED)
-            self.delete_btn.config(state=tk.DISABLED)
+        self.edit_btn.config(state=tk.NORMAL if selected else tk.DISABLED)
+        self.delete_btn.config(state=tk.NORMAL if selected else tk.DISABLED)
 
     def filter_all(self):
         create_filter_window(self)
@@ -233,15 +257,13 @@ class TableView(tk.Frame):
         apply_advanced_filters(self)
 
     def trigger_controller_method(self, method_name, id=None, data=None):
-        if not hasattr(self, 'controller_class'):
+        if not hasattr(self, "controller_class"):
             print("Controller class not set.")
             return
-
         method = getattr(self.controller_class, method_name, None)
         if not callable(method):
             print(f"Method '{method_name}' not found in controller.")
             return
-
         try:
             if method_name == "create":
                 return method()
@@ -257,4 +279,3 @@ class TableView(tk.Frame):
                 print(f"Unsupported method '{method_name}'")
         except TypeError as e:
             print(f"Error calling '{method_name}': {e}")
-

@@ -1,5 +1,4 @@
-__pycache__/
-*.pyc
+**/__pycache__/
 models/__pycache__/user.cpython-313.pyc
 repositories/__pycache__/users_repository.cpython-313.pyc
 requests/__pycache__/rule_validator.cpython-313.pyc
