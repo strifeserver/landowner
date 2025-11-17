@@ -15,37 +15,90 @@ class BaseModel:
         pagination=False,
         items_per_page=10,
         page=1,
-    ):
+        ):
+        import sqlite3
+
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        query = f"SELECT {','.join(fields)} FROM {table_name}"
-        conditions = []
+        base_query = f"SELECT {', '.join(fields)} FROM {table_name}"
+        where_clauses = []
         params = []
 
-        if search:
-            like_clause = " OR ".join([f"{field} LIKE ?" for field in fields])
-            conditions.append(f"({like_clause})")
-            params.extend([f"%{search}%" for _ in fields])
-
+        # -----------------------
+        # ADVANCED FILTERS
+        # -----------------------
         if filters:
             for key, value in filters.items():
-                conditions.append(f"{key} = ?")
-                params.append(value)
+                if value is None or value == "":
+                    continue
 
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
+                # DATE RANGE
+                if key.endswith("_from"):
+                    field = key.replace("_from", "")
+                    where_clauses.append(f"{field} >= ?")
+                    params.append(value)
+
+                elif key.endswith("_to"):
+                    field = key.replace("_to", "")
+                    where_clauses.append(f"{field} <= ?")
+                    params.append(value)
+
+                else:
+                    # Default LIKE filter for text fields
+                    where_clauses.append(f"{key} LIKE ?")
+                    params.append(f"%{value}%")
+
+        # -----------------------
+        # SEARCH (Top-right box)
+        # -----------------------
+        if search and search.strip() != "":
+            search_clauses = [f"{col} LIKE ?" for col in fields]
+            where_clauses.append("(" + " OR ".join(search_clauses) + ")")
+            for _ in fields:
+                params.append(f"%{search}%")
+
+        # Apply WHERE
+        final_query = base_query
+        if where_clauses:
+            final_query += " WHERE " + " AND ".join(where_clauses)
+
+        # -----------------------
+        # PAGINATION
+        # -----------------------
+        total_rows_query = f"SELECT COUNT(*) FROM ({final_query})"
+        cursor.execute(total_rows_query, params)
+        total_rows = cursor.fetchone()[0]
 
         if pagination:
             offset = (page - 1) * items_per_page
-            query += f" LIMIT {items_per_page} OFFSET {offset}"
+            final_query += f" LIMIT {items_per_page} OFFSET {offset}"
 
-        cursor.execute(query, params)
+        # -----------------------
+        # DEBUG SQL PRINT
+        # -----------------------
+        print("\n====== SQL DEBUG ======")
+        print("SQL:", final_query)
+        print("PARAMS:", params)
+        print("Total Rows:", total_rows)
+        print("=======================\n")
+
+        # Execute main query
+        cursor.execute(final_query, params)
         rows = cursor.fetchall()
         conn.close()
 
-        results = [cls(**dict(zip(fields, row))) for row in rows]
-        return results
+        # Convert rows to class objects
+        data = [cls(**dict(zip(fields, row))) for row in rows]
+
+        # Return full structured result
+        return {
+            "data": data,
+            "total_rows": total_rows,
+            "total_pages": (total_rows + items_per_page - 1) // items_per_page,
+            "last_page": page,
+        }
+
 
     @classmethod
     def store_sqlite(cls, db_path, table_name, **kwargs):

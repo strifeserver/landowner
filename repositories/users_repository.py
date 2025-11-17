@@ -2,6 +2,7 @@
 from models.access_level import AccessLevel
 from models.user import User
 import json
+from pprint import pprint
 
 
 class UsersRepository:
@@ -20,11 +21,23 @@ class UsersRepository:
 
     @staticmethod
     def add_access_level_names(users):
-        access_levels = {al.id: al.access_level_name for al in AccessLevel.index()}
-        for user in users:
+        # If this is a dict coming from index(), extract the real list
+        if isinstance(users, dict):
+            users_list = users.get("data", [])
+        else:
+            users_list = users
+
+        access_levels = {
+            al.id: al.access_level_name
+            for al in AccessLevel.index()['data']
+        }
+
+        for user in users_list:
             level_id = int(getattr(user, "access_level", 0) or 0)
             setattr(user, "access_level_name", access_levels.get(level_id, "N/A"))
-        return users
+
+        return users_list
+
 
     @staticmethod
     def store(data):
