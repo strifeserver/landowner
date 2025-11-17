@@ -11,7 +11,10 @@ class MainWindow:
         self.root = tk.Tk()
         self.root.title("LandOwner - Main Window")
         WindowSize = Setting.index(filters={"setting_name": "window_size"})
-        self.root.geometry(WindowSize[0].setting_value)
+        if WindowSize["data"]:  # make sure there's at least one row
+            self.root.geometry(WindowSize["data"][0].setting_value)
+        else:
+            self.root.geometry("800x600")  # fallback size
 
         self.root.grid_rowconfigure(0, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
@@ -34,7 +37,7 @@ class MainWindow:
 
     def load_navigation(self, parent_frame):
         menu_items = Navigation.index()
-        for item in menu_items:
+        for item in menu_items['data']:
             
             btn = tk.Button(
                 parent_frame,
