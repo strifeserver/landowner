@@ -3,7 +3,7 @@ import os
 from datetime import datetime
 from models.base_model import BaseModel
 from models.access_level import AccessLevel  # <-- make sure this import exists
-
+from utils.debug import print_r
 DB_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "data", "data.db"
 )
@@ -101,6 +101,9 @@ class User(BaseModel):
     def index(
         cls, filters=None, search=None, pagination=False, items_per_page=10, page=1
     ):
+        
+        
+        
         return super().index_sqlite(
             DB_PATH,
             cls.table_name,

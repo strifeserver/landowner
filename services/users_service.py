@@ -2,6 +2,7 @@
 
 from repositories.users_repository import UsersRepository
 from models.user import User
+from utils.debug import print_r
 
 
 class UsersService:
@@ -9,7 +10,7 @@ class UsersService:
     def get_users(filters=None, pagination=False, items_per_page=5, page=1, search=None):
         results = UsersRepository.find_all(filters, search)
         results = UsersRepository.add_access_level_names(results)
-
+        
         # Process fields
         for row in results:
             for field_key, field_def in User.field_definitions.items():

@@ -11,7 +11,7 @@ class UsersController:
         
         indexData = UsersService.get_users(
             filters=filters or {},
-            pagination=pagination,
+            pagination=True,
             items_per_page=items_per_page,
             page=page,
             search=searchAll,

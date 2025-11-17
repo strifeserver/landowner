@@ -26,6 +26,7 @@ class TableView(tk.Frame):
         self.current_page = 1
         self.items_per_page = 10
 
+        # Columns setup
         if columns is None:
             if (
                 controller_callback
@@ -64,7 +65,7 @@ class TableView(tk.Frame):
 
         self.create_search_and_filter(table_container)
         self.create_treeview_table(table_container)
-        self.render_rows()
+        self.render_rows()  # initial render
 
     def create_treeview_table(self, parent):
         tree_frame = tk.Frame(parent)
@@ -94,7 +95,7 @@ class TableView(tk.Frame):
         )
         self.hsb.pack(fill=tk.X)
 
-        # Pagination Controls (moved here)
+        # Pagination Controls
         nav_frame = tk.Frame(tree_frame)
         nav_frame.pack(fill=tk.X, pady=(5, 10))
 
@@ -109,7 +110,7 @@ class TableView(tk.Frame):
         self.next_btn = tk.Button(nav_frame, text="Next", command=self.load_next_page)
         self.next_btn.pack(side=tk.LEFT)
 
-        #Loop Columns
+        # Columns
         for col, label in zip(self.columns, self.column_labels):
             self.tree.heading(col, text=label)
             if col.lower() == "id":
@@ -118,7 +119,6 @@ class TableView(tk.Frame):
                 self.tree.column(col, width=100, anchor="center", stretch=False)
             else:
                 self.tree.column(col, width=150, anchor="w", stretch=True)
-        #Loop Columns
 
         self.tree.tag_configure("oddrow", background="#f5f5f5")
         self.tree.tag_configure("evenrow", background="white")
@@ -161,32 +161,17 @@ class TableView(tk.Frame):
         tk.Button(
             search_frame, text="More Filters", command=self.filter_all, width=10
         ).pack(side=tk.LEFT, padx=10)
-        tk.Button(search_frame, text="Refresh", command=self.refresh_table, width=10).pack(side=tk.LEFT, padx=10)
-
-    def create_pagination_controls(self, parent):
-        nav_frame = tk.Frame(parent)
-        nav_frame.pack(fill=tk.X, pady=(5, 10))
-
-        self.prev_btn = tk.Button(
-            nav_frame, text="Previous", command=self.load_previous_page
-        )
-        self.prev_btn.pack(side=tk.LEFT, padx=10)
-
-        self.page_label = tk.Label(nav_frame, text=f"Page {self.current_page}")
-        self.page_label.pack(side=tk.LEFT, padx=5)
-
-        self.next_btn = tk.Button(nav_frame, text="Next", command=self.load_next_page)
-        self.next_btn.pack(side=tk.LEFT)
+        tk.Button(
+            search_frame, text="Refresh", command=self.refresh_table, width=10
+        ).pack(side=tk.LEFT, padx=10)
 
     def configure_styles(self):
         apply_treeview_style()
 
     def render_rows(self):
-        if self.controller_callback:
-            self.filtered_data = self.controller_callback(
-                searchAll=self.search_entry.get().strip().lower(),
-                page=self.current_page,
-            )
+        """Only renders self.filtered_data; does not call controller automatically."""
+        if not self.filtered_data:
+            self.filtered_data = []
 
         self.tree.delete(*self.tree.get_children())
         for idx, row in enumerate(self.filtered_data):
@@ -205,10 +190,8 @@ class TableView(tk.Frame):
             text=f"Page {self.current_page} / {total_pages}   (Showing {showing} of {total} rows)"
         )
 
-        # Enable/disable navigation buttons
         self.prev_btn.config(state=tk.NORMAL if self.current_page > 1 else tk.DISABLED)
         self.next_btn.config(state=tk.NORMAL if self.current_page < total_pages else tk.DISABLED)
-
 
     def load_previous_page(self):
         if self.current_page > 1:
@@ -256,7 +239,13 @@ class TableView(tk.Frame):
             self.render_rows()
 
     def on_search(self, event=None):
+        """Explicitly update filtered_data using searchAll."""
         self.current_page = 1
+        if self.controller_callback:
+            self.filtered_data = self.controller_callback(
+                searchAll=self.search_entry.get().strip().lower(),
+                page=self.current_page
+            )
         self.render_rows()
 
     def on_tree_select(self, event):
@@ -266,17 +255,20 @@ class TableView(tk.Frame):
 
     def filter_all(self):
         create_filter_window(self)
-        
+
     def refresh_table(self):
         print('Refresh Table')
-        self.current_page = 1     # optional, reset pagination
-        self.search_entry.delete(0, tk.END)  # optional, clear search
+        self.current_page = 1
+        self.search_entry.delete(0, tk.END)
+        if self.controller_callback:
+            self.filtered_data = self.controller_callback(page=self.current_page)
         self.render_rows()
-        
-        
 
     def apply_advanced_filters(self):
-        apply_advanced_filters(self)
+        """Updates self.filtered_data internally, no need to assign return."""
+        self.current_page = 1
+        apply_advanced_filters(self)  # updates self.filtered_data internally
+        self.render_rows()
 
     def trigger_controller_method(self, method_name, id=None, data=None):
         if not hasattr(self, "controller_class"):

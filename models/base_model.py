@@ -1,5 +1,7 @@
 import sqlite3
 from datetime import datetime
+from pprint import pprint
+from utils.debug import print_r
 
 class BaseModel:
     # Add your JSON helpers here if needed...
@@ -16,36 +18,102 @@ class BaseModel:
         items_per_page=10,
         page=1,
     ):
+
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        query = f"SELECT {','.join(fields)} FROM {table_name}"
-        conditions = []
+        base_query = f"SELECT {', '.join(fields)} FROM {table_name}"
+        where_clauses = []
         params = []
 
-        if search:
-            like_clause = " OR ".join([f"{field} LIKE ?" for field in fields])
-            conditions.append(f"({like_clause})")
-            params.extend([f"%{search}%" for _ in fields])
-
+        # -----------------------
+        # ADVANCED FILTERS
+        # -----------------------
         if filters:
             for key, value in filters.items():
-                conditions.append(f"{key} = ?")
-                params.append(value)
+                if value is None or value == "":
+                    continue
 
-        if conditions:
-            query += " WHERE " + " AND ".join(conditions)
+                # DATE RANGE: field_from, field_to
+                if key.endswith("_from"):
+                    field = key.replace("_from", "")
+                    where_clauses.append(f"{field} >= ?")
+                    params.append(value)
 
+                elif key.endswith("_to"):
+                    field = key.replace("_to", "")
+                    where_clauses.append(f"{field} <= ?")
+                    params.append(value)
+
+                else:
+                    # Case-insensitive LIKE for normal filters
+                    where_clauses.append(f"LOWER({key}) LIKE ?")
+                    params.append(f"%{str(value).lower()}%")
+
+        # -----------------------
+        # SEARCH (Top-right box)
+        # -----------------------
+        if search and search.strip() != "":
+            search_clauses = [f"LOWER({col}) LIKE ?" for col in fields]
+            where_clauses.append("(" + " OR ".join(search_clauses) + ")")
+            for _ in fields:
+                params.append(f"%{search.lower()}%")
+
+        # Apply WHERE conditions
+        final_query = base_query
+        if where_clauses:
+            final_query += " WHERE " + " AND ".join(where_clauses)
+
+        # -----------------------
+        # PAGINATION
+        # -----------------------
+        total_rows = None
         if pagination:
-            offset = (page - 1) * items_per_page
-            query += f" LIMIT {items_per_page} OFFSET {offset}"
+            total_rows_query = f"SELECT COUNT(*) FROM ({final_query})"
+            cursor.execute(total_rows_query, params)
+            total_rows = cursor.fetchone()[0]
 
-        cursor.execute(query, params)
+            offset = (page - 1) * items_per_page
+            final_query += f" LIMIT {items_per_page} OFFSET {offset}"
+
+        # Execute main query
+        cursor.execute(final_query, params)
         rows = cursor.fetchall()
         conn.close()
 
-        results = [cls(**dict(zip(fields, row))) for row in rows]
-        return results
+        # Convert rows → class objects
+        data = [cls(**dict(zip(fields, row))) for row in rows]
+
+
+
+        # -----------------------
+        # DEBUG SQL PRINT
+        # -----------------------
+        if table_name == 'users':
+            print("\n====== SQL DEBUG ======")
+            print("SQL:", final_query)
+            print("PARAMS:", params)
+            print("filters:", filters)
+            print_r(data)
+            if pagination:
+                print("Total Rows:", total_rows)
+            print("=======================\n")
+
+
+
+        # -----------------------
+        # Conditional return
+        # -----------------------
+        if pagination:
+            return {
+                "data": data,
+                "total_rows": total_rows,
+                "total_pages": (total_rows + items_per_page - 1) // items_per_page,
+                "last_page": page,
+            }
+
+        return data
+
 
     @classmethod
     def store_sqlite(cls, db_path, table_name, **kwargs):
