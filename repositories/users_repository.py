@@ -29,7 +29,7 @@ class UsersRepository:
 
         access_levels = {
             al.id: al.access_level_name
-            for al in AccessLevel.index()['data']
+            for al in AccessLevel.index()
         }
 
         for user in users_list:

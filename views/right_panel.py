@@ -4,6 +4,7 @@ from tkinter import ttk
 from views.table.table_view import TableView
 import importlib
 from utils.debug import print_r
+import traceback
 
 
 class RightPanel(tk.Frame):
@@ -83,9 +84,10 @@ class RightPanel(tk.Frame):
                 tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
 
         except Exception as e:
+            # Print full traceback for detailed info
+            print("Error loading content:", e)
+            traceback.print_exc()
             tk.Label(self, text=f"Error loading: {str(e)}", fg="red", bg="#ffffff").pack(pady=20)
-
-
     def clear(self):
         for widget in self.winfo_children():
             widget.destroy()
