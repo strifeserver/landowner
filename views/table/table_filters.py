@@ -82,7 +82,8 @@ def apply_advanced_filters(self):
                 filters["created_at_to"] = parse_date_plus(d_to)
 
     if self.controller_callback:
-        self.filtered_data = self.controller_callback(filters=filters)
+        # self.filtered_data = self.controller_callback(filters=filters)
+        return filters
     else:
         self.filtered_data = [
             row

@@ -94,6 +94,7 @@ class BaseModel:
             print("SQL:", final_query)
             print("PARAMS:", params)
             print("filters:", filters)
+            print("Showing Data count: ", len(data))
             print_r(data)
             if pagination:
                 print("Total Rows:", total_rows)

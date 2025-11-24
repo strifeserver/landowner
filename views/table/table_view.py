@@ -7,22 +7,12 @@ from views.table.table_buttons import on_add, on_edit, on_delete
 
 
 class TableView(tk.Frame):
-    def __init__(
-        self,
-        parent,
-        data,
-        controller_callback=None,
-        title="Table View",
-        columns=None,
-        column_labels=None,
-        *args,
-        **kwargs,
-    ):
+    def __init__(self, parent, data, controller_callback=None, title="Table View", columns=None, column_labels=None, *args, **kwargs,):
         super().__init__(parent, *args, **kwargs)
         self.controller_callback = controller_callback
         self.original_data = data.copy()
         self.filtered_data = data.copy()
-
+        self.advance_filter = {}
         self.current_page = 1
         self.items_per_page = 10
 
@@ -183,11 +173,24 @@ class TableView(tk.Frame):
 
     def render_rows(self):
         if self.controller_callback:
-            self.filtered_data = self.controller_callback(
-                searchAll=self.search_entry.get().strip().lower(),
-                page=self.current_page,
-            )
+            
+            window_open = (hasattr(self, "filter_window") and self.filter_window.winfo_exists())
 
+            if window_open:
+                print("Window is open")
+                print(self.advance_filter)
+                self.filtered_data = self.controller_callback(
+                    filters=self.advance_filter, page=self.current_page
+                )
+            else:
+                print("Window is closed")
+                self.filtered_data = self.controller_callback(
+                    searchAll=self.search_entry.get().strip().lower(),
+                    page=self.current_page
+                )
+                        
+
+            
         self.tree.delete(*self.tree.get_children())
         for idx, row in enumerate(self.filtered_data):
             values = [row.get(col, "") for col in self.columns]
@@ -276,7 +279,10 @@ class TableView(tk.Frame):
         
 
     def apply_advanced_filters(self):
-        apply_advanced_filters(self)
+        
+        self.advance_filter = apply_advanced_filters(self)
+        self.current_page = 1
+        self.render_rows()
 
     def trigger_controller_method(self, method_name, id=None, data=None):
         if not hasattr(self, "controller_class"):
