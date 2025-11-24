@@ -5,6 +5,8 @@ from views.table.table_view import TableView
 import importlib
 from utils.debug import print_r
 import traceback
+from datetime import datetime
+import tkinter.font as tkFont
 
 
 class RightPanel(tk.Frame):
@@ -12,16 +14,28 @@ class RightPanel(tk.Frame):
         super().__init__(parent, bg="#ffffff", *args, **kwargs)
         self.pack_propagate(False)
         self.render_default()
+        
 
     def render_default(self):
         self.clear()
-        tk.Label(
-            self, text="Welcome to the Right Panel", bg="#ffffff", font=("Arial", 12)
-        ).pack(pady=20)
+        tk.Label(self, text="Welcome to the Right Panel", bg="#ffffff", font=("Arial", 12)).pack(pady=20)
 
     def render_content(self, nav_name, ctrlName, navigation_name):
         self.clear()
-
+        
+        self.create_top_right_account()
+        # top_frame = tk.Frame(self)
+        # top_frame.pack(side=tk.TOP, fill=tk.X)  # stretch across top
+        # self.prev_btn = tk.Button(
+        #     top_frame,
+        #     text="My Account",
+        #     command=lambda: print("TEST"),
+        #     padx=15,  # horizontal padding inside button
+        #     pady=5    # vertical padding inside button
+        # )
+        # # Pack to the right
+        # self.prev_btn.pack(side=tk.RIGHT, padx=10, pady=5)
+                
         try:
             controller_name = f"{nav_name}_controller"
             controller_module = importlib.import_module(f"controllers.{controller_name}")
@@ -91,3 +105,58 @@ class RightPanel(tk.Frame):
     def clear(self):
         for widget in self.winfo_children():
             widget.destroy()
+
+    def create_top_right_account(self):
+        """
+        Creates a top-right 'My Account' button with a live datetime label below it,
+        10px spacing from the top, and a solid gray horizontal line below.
+        """
+        # Spacer frame for top padding (10px)
+        spacer = tk.Frame(self, height=10)
+        spacer.pack(side=tk.TOP, fill=tk.X)
+        
+        # Spacer frame for top padding (10px)
+        spacer_bottom = tk.Frame(self, height=10)
+        spacer_bottom.pack(side=tk.BOTTOM, fill=tk.X)
+
+
+        # Top frame (stretch across top)
+        top_frame = tk.Frame(self)
+        top_frame.pack(side=tk.TOP, fill=tk.X)
+
+        # Font for button
+        btn_font = tkFont.Font(family="Helvetica", size=12, weight="bold")
+
+        # My Account button
+        self.prev_btn = tk.Button(
+            top_frame,
+            text="My Account",
+            command=lambda: print("TEST"),
+            font=btn_font,
+            padx=15,
+            pady=5
+        )
+        self.prev_btn.pack(side=tk.RIGHT, padx=10, pady=(0, 0))
+
+        # Date/Time label
+        self.datetime_label = tk.Label(
+            top_frame,
+            font=("Helvetica", 10),
+            justify='right'
+        )
+        self.datetime_label.pack(side=tk.RIGHT, padx=10, pady=(0, 0))
+
+        # Function to update the datetime label
+        def update_datetime():
+            now = datetime.now()
+            date_str = now.strftime("%m/%d/%Y")
+            time_str = now.strftime("%I:%M %p")
+            self.datetime_label.config(text=f"{date_str}\n{time_str}")
+            self.datetime_label.after(1000, update_datetime)  # update every second
+
+        update_datetime()  # start the timer
+
+        # --- Solid gray horizontal line ---
+        # --- Solid gray horizontal line with 10px top and bottom padding ---
+        # gray_line = tk.Frame(self, height=2, bg="#a0a0a0")  # 2px height, gray color
+        # gray_line.pack(side=tk.TOP, fill=tk.X, pady=10)  # 10px spacing top and bottom

@@ -38,17 +38,28 @@ def migrate():
         )
     """)
 
-    # NAVIGATIONS
+    # NAVIGATIONS (Updated to match your JSON structure 1:1)
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS navigations (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             menu_name TEXT,
-            navigation TEXT,
-            controller TEXT,
-            pagination BOOLEAN,
-            items_per_page INTEGER,
-            created_at TEXT,
-            updated_at TEXT
+            navigation TEXT DEFAULT NULL,
+            controller TEXT DEFAULT NULL,
+            navigation_type TEXT DEFAULT NULL,      -- "menu", "menu_header"
+            navigation_order INTEGER DEFAULT 0,
+            parent_id INTEGER DEFAULT NULL,
+
+            -- NEW FIELDS (from your JSON)
+            icon TEXT DEFAULT NULL,
+            tooltip TEXT DEFAULT NULL,
+            is_hidden INTEGER DEFAULT 0,            -- SQLite boolean (0/1)
+            status TEXT DEFAULT 'active',
+
+            -- JSON stored as TEXT
+            datatable_settings TEXT DEFAULT NULL,
+
+            created_at TEXT DEFAULT NULL,
+            updated_at TEXT DEFAULT NULL
         )
     """)
 

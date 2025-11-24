@@ -5,7 +5,7 @@ DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data',
 
 class Navigation(BaseModel):
     table_name = "navigations"
-    fields = ['id', 'menu_name', 'navigation', 'controller', 'pagination', 'items_per_page', 'created_at', 'updated_at']
+    fields = ['id', 'menu_name', 'navigation', 'controller', 'navigation_type', 'navigation_order', 'parent_id', 'icon', 'tooltip', 'is_hidden', 'status', 'created_at', 'updated_at']
 
     def __init__(self, **kwargs):
         for field in self.fields:
