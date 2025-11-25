@@ -57,6 +57,16 @@ class TableView(tk.Frame):
         self.render_rows()
 
     def create_treeview_table(self, parent):
+        
+        #Table style Config
+        table_height = 10
+        table_heading_font_size = 12
+        table_row_font_size = 11
+        table_font = "Arial"
+        table_row_height = 30
+        #Table style Config
+        
+        
         tree_frame = tk.Frame(parent)
         tree_frame.pack(fill=tk.X, expand=False)
 
@@ -71,7 +81,7 @@ class TableView(tk.Frame):
             columns=self.columns,
             show="headings",
             selectmode="browse",
-            height=8,
+            height=table_height , #Table Height
             style="Custom.Treeview",
             yscrollcommand=self.vsb.set,
             xscrollcommand=lambda *args: self.hsb.set(*args),
@@ -79,6 +89,14 @@ class TableView(tk.Frame):
         self.tree.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.vsb.config(command=self.tree.yview)
 
+        #Table Styles
+        style = ttk.Style()
+        style.configure("Custom.Treeview", rowheight=table_row_height)
+        tree_font = (table_font, table_row_font_size) 
+        style.configure("Custom.Treeview", font=tree_font)
+        style.configure("Custom.Treeview.Heading", font=(table_font, table_heading_font_size, "bold"))
+        #Table Styles
+                
         self.hsb = ttk.Scrollbar(
             tree_frame, orient="horizontal", command=self.tree.xview
         )
@@ -88,9 +106,7 @@ class TableView(tk.Frame):
         nav_frame = tk.Frame(tree_frame)
         nav_frame.pack(fill=tk.X, pady=(5, 10))
 
-        self.prev_btn = tk.Button(
-            nav_frame, text="Previous", command=self.load_previous_page
-        )
+        self.prev_btn = tk.Button(nav_frame, text="Previous", command=self.load_previous_page)
         self.prev_btn.pack(side=tk.LEFT, padx=10)
 
         self.page_label = tk.Label(nav_frame, text=f"Page {self.current_page}")
@@ -101,11 +117,16 @@ class TableView(tk.Frame):
 
         #Loop Columns
         for col, label in zip(self.columns, self.column_labels):
+            
             self.tree.heading(col, text=label)
             if col.lower() == "id":
                 self.tree.column(col, width=50, anchor="center", stretch=False)
             elif col.lower() == "customid":
                 self.tree.column(col, width=100, anchor="center", stretch=False)
+            elif col.lower() == "is_locked":
+                self.tree.column(col, width=120, anchor="center", stretch=False)
+            elif col.lower() == "account_status":
+                self.tree.column(col, width=120, anchor="center", stretch=False)
             else:
                 self.tree.column(col, width=150, anchor="w", stretch=True)
         #Loop Columns
@@ -117,9 +138,7 @@ class TableView(tk.Frame):
     def create_header(self, title):
         title_frame = tk.Frame(self)
         title_frame.pack(fill=tk.X, pady=(5, 2))
-        tk.Label(title_frame, text=title, font=("Arial", 12, "bold")).pack(
-            side=tk.LEFT, padx=10
-        )
+        tk.Label(title_frame, text=title, font=("Arial", 12, "bold")).pack(side=tk.LEFT, padx=10)
 
         tk.Button(title_frame, text="Add", command=lambda: on_add(self), width=10).pack(
             side=tk.RIGHT, padx=10

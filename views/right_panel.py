@@ -7,7 +7,7 @@ from utils.debug import print_r
 import traceback
 from datetime import datetime
 import tkinter.font as tkFont
-
+import psutil, os 
 
 class RightPanel(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
@@ -16,9 +16,17 @@ class RightPanel(tk.Frame):
         self.render_default()
         
 
+    # -------------------------------
+    # DEFAULT PANEL WITH MEMORY LABEL
+    # -------------------------------
     def render_default(self):
         self.clear()
-        tk.Label(self, text="Welcome to the Right Panel", bg="#ffffff", font=("Arial", 12)).pack(pady=20)
+
+        # Row 1 — Welcome Label
+        tk.Label(self, text="Welcome to the Right Panel", font=("Arial", 12)).pack(pady=(20, 5))
+
+
+
 
     def render_content(self, nav_name, ctrlName, navigation_name):
         self.clear()
@@ -35,7 +43,7 @@ class RightPanel(tk.Frame):
         # )
         # # Pack to the right
         # self.prev_btn.pack(side=tk.RIGHT, padx=10, pady=5)
-                
+               
         try:
             controller_name = f"{nav_name}_controller"
             controller_module = importlib.import_module(f"controllers.{controller_name}")
@@ -96,7 +104,9 @@ class RightPanel(tk.Frame):
 
             else:
                 tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
-
+            
+            self.create_footer()
+            
         except Exception as e:
             # Print full traceback for detailed info
             print("Error loading content:", e)
@@ -105,6 +115,33 @@ class RightPanel(tk.Frame):
     def clear(self):
         for widget in self.winfo_children():
             widget.destroy()
+
+
+    def create_footer(self):
+        font_size = 8
+        # System default background
+        sys_bg = tk.Frame().cget("bg")  # 'SystemButtonFace' on Windows
+        # Outer frame to control padding (no visible bg change)
+        padded_frame = tk.Frame(self, bg=sys_bg)
+        padded_frame.pack(side=tk.BOTTOM, fill=tk.X)
+        # Inner footer frame
+        footer_frame = tk.Frame(padded_frame, bg=sys_bg)
+        footer_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
+        
+        # Left label
+        tk.Label(footer_frame, text="Landowner©2025", font=("Arial", font_size), bg=sys_bg).pack(side=tk.LEFT)
+        
+        # Right memory label
+        self.memory_label = tk.Label(footer_frame, font=("Arial", font_size), bg=sys_bg)
+        self.memory_label.pack(side=tk.RIGHT)
+        self.update_memory_usage()
+        
+    def update_memory_usage(self):
+        process = psutil.Process(os.getpid())
+        mem_mb = process.memory_info().rss / (1024 * 1024)
+        self.memory_label.config(text=f"Memory Usage: {mem_mb:.2f} MB")
+        self.memory_label.after(1000, self.update_memory_usage)  # update again in 1 sec
+
 
     def create_top_right_account(self):
         """
@@ -137,6 +174,8 @@ class RightPanel(tk.Frame):
             pady=5
         )
         self.prev_btn.pack(side=tk.RIGHT, padx=10, pady=(0, 0))
+        
+
 
         # Date/Time label
         self.datetime_label = tk.Label(
