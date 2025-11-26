@@ -45,7 +45,7 @@ class TableView(tk.Frame):
         else:
             self.column_labels = column_labels
 
-        self.configure_styles()
+        
         self.create_header(title)
 
         # --- Table Container ---
@@ -59,13 +59,15 @@ class TableView(tk.Frame):
     def create_treeview_table(self, parent):
         
         #Table style Config
-        table_height = 10
-        table_heading_font_size = 12
-        table_row_font_size = 11
-        table_font = "Arial"
-        table_row_height = 30
+        table_style_config = {
+            "table_height": 10,   
+            "table_heading_font_size": 12,   
+            "table_row_font_size": 11,   
+            "table_font": "Arial",   
+            "table_row_height": 30,   
+        }
         #Table style Config
-        
+
         
         tree_frame = tk.Frame(parent)
         tree_frame.pack(fill=tk.X, expand=False)
@@ -81,21 +83,15 @@ class TableView(tk.Frame):
             columns=self.columns,
             show="headings",
             selectmode="browse",
-            height=table_height , #Table Height
+            height=table_style_config['table_height'] , #Table Height
             style="Custom.Treeview",
             yscrollcommand=self.vsb.set,
             xscrollcommand=lambda *args: self.hsb.set(*args),
         )
         self.tree.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.vsb.config(command=self.tree.yview)
-
-        #Table Styles
-        style = ttk.Style()
-        style.configure("Custom.Treeview", rowheight=table_row_height)
-        tree_font = (table_font, table_row_font_size) 
-        style.configure("Custom.Treeview", font=tree_font)
-        style.configure("Custom.Treeview.Heading", font=(table_font, table_heading_font_size, "bold"))
-        #Table Styles
+        
+        self.configure_styles(table_style_config)
                 
         self.hsb = ttk.Scrollbar(
             tree_frame, orient="horizontal", command=self.tree.xview
@@ -187,8 +183,8 @@ class TableView(tk.Frame):
         self.next_btn = tk.Button(nav_frame, text="Next", command=self.load_next_page)
         self.next_btn.pack(side=tk.LEFT)
 
-    def configure_styles(self):
-        apply_treeview_style()
+    def configure_styles(self, config):
+        apply_treeview_style(config)
 
     def render_rows(self):
         if self.controller_callback:
