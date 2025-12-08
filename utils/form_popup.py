@@ -3,11 +3,16 @@ from tkinter import ttk
 
 
 def open_form_popup(title, field_definitions, on_submit, initial_data=None):
+    
+    print('OPEN POPUPPPPPPPPPP')
+    print(field_definitions)
+    
     popup = tk.Toplevel()
     popup.title(title)
     popup.geometry("400x500")
 
     entries = {}
+    
 
     for field_name, config in field_definitions.items():
         # Skip auto-managed fields

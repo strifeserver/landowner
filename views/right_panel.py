@@ -33,25 +33,9 @@ class RightPanel(tk.Frame):
 
     def render_content(self, nav_name, ctrlName, navigation_name):
         self.clear()
-        
         self.create_top_right_account()
-        # top_frame = tk.Frame(self)
-        # top_frame.pack(side=tk.TOP, fill=tk.X)  # stretch across top
-        # self.prev_btn = tk.Button(
-        #     top_frame,
-        #     text="My Account",
-        #     command=lambda: print("TEST"),
-        #     padx=15,  # horizontal padding inside button
-        #     pady=5    # vertical padding inside button
-        # )
-        # # Pack to the right
-        # self.prev_btn.pack(side=tk.RIGHT, padx=10, pady=5)
-               
+
         try:
-            # print(ctrlName)
-            # controller_name = f"{nav_name}_controller"
-            # controller_module = importlib.import_module(f"controllers.{controller_name}")
-            # controller_class = getattr(controller_module, ctrlName)
             controller_class = get_controller(nav_name, ctrlName)
 
             # Fetch initial result (page 1)
@@ -60,24 +44,47 @@ class RightPanel(tk.Frame):
             )
 
             if initial_result:
-                model_class = initial_result["data"][0].__class__ if isinstance(initial_result, dict) else initial_result[0].__class__
-                visible_fields = model_class.get_visible_fields()
+                data_list = initial_result["data"] if isinstance(initial_result, dict) else initial_result
+
+                if not data_list:
+                    tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
+                    self.create_footer()
+                    return
+
+                # Get model class
+                model_class = data_list[0].__class__
+
+                # ------------------------------------------
+                # 1. SAFE HANDLING OF get_visible_fields()
+                # ------------------------------------------
+                if hasattr(model_class, "get_visible_fields") and callable(getattr(model_class, "get_visible_fields")):
+                    visible_fields = model_class.get_visible_fields()
+                else:
+                    # Fallback: auto-generate visible fields from model attributes
+                    sample = data_list[0].__dict__
+                    visible_fields = [(field, field.replace("_", " ").title()) for field in sample.keys()]
+
                 columns = [field for field, _ in visible_fields]
                 column_labels = [alias for _, alias in visible_fields]
-                data = [obj.__dict__ for obj in initial_result["data"]] if isinstance(initial_result, dict) else [obj.__dict__ for obj in initial_result]
 
+                # Convert objects → dicts
+                data = [obj.__dict__ for obj in data_list]
+
+                # Create Table
                 table = TableView(
                     self,
                     columns=columns,
                     column_labels=column_labels,
                     data=data,
-                    controller_callback=None,  # Temporarily None
+                    controller_callback=None,  # Added later
                     title=navigation_name,
                 )
                 table.pack(fill=tk.BOTH, expand=True)
-                table.controller_class = controller_class  # Keep reference
+                table.controller_class = controller_class
 
-                # Now define controller_callback with access to the table instance
+                # ------------------------------------------
+                # 2. PAGINATION CALLBACK
+                # ------------------------------------------
                 def controller_callback(filters=None, searchAll=None, page=1):
                     try:
                         result = controller_class.index(
@@ -88,12 +95,10 @@ class RightPanel(tk.Frame):
                             searchAll=searchAll,
                         )
 
-                        # Save pagination info to TableView instance
                         table.total_rows = result.get("total_rows", 0)
                         table.total_pages = result.get("total_pages", 1)
                         table.last_page = result.get("last_page", 1)
 
-                        # Return only the data for Treeview
                         return [obj.__dict__ for obj in result["data"]]
 
                     except Exception as err:
@@ -103,24 +108,20 @@ class RightPanel(tk.Frame):
                         table.last_page = 1
                         return []
 
-                # Assign the callback now that table exists
                 table.controller_callback = controller_callback
-                table.render_rows()  # Render first page
+                table.render_rows()
 
             else:
                 tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
-            
-            
-        
+
         except Exception as e:
-            # Print full traceback for detailed info
             print("Error loading content:", e)
             traceback.print_exc()
             tk.Label(self, text=f"Error loading: {str(e)}", fg="red", bg="#ffffff").pack(pady=20)
-            
-            
+
         self.create_footer()
-        
+
+            
             
     def clear(self):
         for widget in self.winfo_children():

@@ -237,41 +237,44 @@ class TableView(tk.Frame):
         self.current_page += 1
         self.render_rows()
 
-    def on_add(self):
-        self.trigger_controller_method("create")
+    # def on_add(self):
+    #     self.trigger_controller_method("create")
 
-    def on_edit(self):
-        selected = self.tree.selection()
-        if not selected:
-            return
-        index = int(selected[0])
-        row = self.filtered_data[index]
-        row_id = row.get("id")
-        self.trigger_controller_method("edit", id=row_id)
+    # def on_edit(self):
+    #     selected = self.tree.selection()
+        
+    #     if not selected:
+    #         return
+    #     index = int(selected[0])
+    #     row = self.filtered_data[index]
 
-    def on_delete(self):
-        selected = self.tree.selection()
-        if not selected:
-            return
-        index = int(selected[0])
-        row = self.filtered_data[index]
-        row_id = row.get("id", None)
-        if row_id is None:
-            messagebox.showerror(
-                "Delete Error", "No 'id' field found in the selected row."
-            )
-            return
-        if messagebox.askyesno(
-            "Confirm Delete", f"Are you sure you want to delete row with ID: {row_id}?"
-        ):
-            self.original_data = [
-                r for r in self.original_data if r.get("id") != row_id
-            ]
-            self.filtered_data = [
-                r for r in self.filtered_data if r.get("id") != row_id
-            ]
-            self.trigger_controller_method("destroy", id=row_id)
-            self.render_rows()
+        
+    #     row_id = row.get("id")
+    #     self.trigger_controller_method("edit", id=row_id)
+
+    # def on_delete(self):
+    #     selected = self.tree.selection()
+    #     if not selected:
+    #         return
+    #     index = int(selected[0])
+    #     row = self.filtered_data[index]
+    #     row_id = row.get("id", None)
+    #     if row_id is None:
+    #         messagebox.showerror(
+    #             "Delete Error", "No 'id' field found in the selected row."
+    #         )
+    #         return
+    #     if messagebox.askyesno(
+    #         "Confirm Delete", f"Are you sure you want to delete row with ID: {row_id}?"
+    #     ):
+    #         self.original_data = [
+    #             r for r in self.original_data if r.get("id") != row_id
+    #         ]
+    #         self.filtered_data = [
+    #             r for r in self.filtered_data if r.get("id") != row_id
+    #         ]
+    #         self.trigger_controller_method("destroy", id=row_id)
+    #         self.render_rows()
 
     def on_search(self, event=None):
         self.current_page = 1
@@ -300,10 +303,13 @@ class TableView(tk.Frame):
         self.render_rows()
 
     def trigger_controller_method(self, method_name, id=None, data=None):
+        
         if not hasattr(self, "controller_class"):
             print("Controller class not set.")
             return
+    
         method = getattr(self.controller_class, method_name, None)
+        
         if not callable(method):
             print(f"Method '{method_name}' not found in controller.")
             return

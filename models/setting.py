@@ -2,9 +2,22 @@ import os
 from models.base_model import BaseModel
 
 class Setting(BaseModel):
+    
     db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'data.db')
     table_name = "settings"
     fields = ['id', 'setting_name', 'setting_value', 'setting_options', 'created_at', 'updated_at']
+
+    # Add field_definitions to work with BaseService
+    field_definitions = {
+        "id": {},
+        "setting_name": {"capitalize1st": True},
+        "setting_value": {},
+        "setting_options": {
+                "is_hidden": True,
+            },
+        "created_at": {},
+        "updated_at": {}
+    }
 
     def __init__(self, **kwargs):
         for field in self.fields:
@@ -12,6 +25,7 @@ class Setting(BaseModel):
 
     @classmethod
     def index(cls, filters=None, search=None, pagination=False, items_per_page=10, page=1):
+        
         return super().index_sqlite(
             cls.db_path,
             cls.table_name,

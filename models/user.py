@@ -98,12 +98,7 @@ class User(BaseModel):
         return super().destroy_sqlite(DB_PATH, cls.table_name, id)
 
     @classmethod
-    def index(
-        cls, filters=None, search=None, pagination=False, items_per_page=10, page=1
-    ):
-        
-        
-        
+    def index(cls, filters=None, search=None, pagination=False, items_per_page=10, page=1):
         return super().index_sqlite(
             DB_PATH,
             cls.table_name,
@@ -114,21 +109,6 @@ class User(BaseModel):
             items_per_page,
             page,
         )
-
-    @classmethod
-    def get_visible_fields(cls):
-        return sorted(
-            [
-                (key, val["alias"])
-                for key, val in cls.field_definitions.items()
-                if not val.get("is_hidden")
-            ],
-            key=lambda x: cls.field_definitions[x[0]].get("order", 999),
-        )
-
-    @classmethod
-    def get_ordered_field_keys(cls):
-        return [key for key, _ in cls.get_visible_fields()]
 
     @classmethod
     def get_dynamic_field_definitions(cls):

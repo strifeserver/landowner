@@ -17,11 +17,12 @@ def on_add(table_view):
         table_view.original_data = table_view.controller_callback() or []
         table_view.filtered_data = table_view.original_data.copy()
         table_view.render_rows()
-
-    open_form_popup("Create User", field_definitions, on_submit=on_submit)
+        
+    open_form_popup("Insert Data", field_definitions, on_submit=on_submit)
 
 
 def on_edit(table_view):
+    
     selected = table_view.tree.selection()
     if not selected:
         return
@@ -29,9 +30,13 @@ def on_edit(table_view):
     row = table_view.filtered_data[index]
     row_id = row.get("id")
 
-    field_definitions = table_view.trigger_controller_method(
-        "create"
-    )  # reuse field metadata
+
+
+    field_definitions = table_view.trigger_controller_method("create")  # reuse field metadata
+    
+    print('FIELD DEFINITIONS')
+    print(table_view.trigger_controller_method("create"))
+    
 
     def on_submit(data):
         table_view.trigger_controller_method("update", id=row_id, data=data)
@@ -41,9 +46,7 @@ def on_edit(table_view):
         table_view.filtered_data = table_view.original_data.copy()
         table_view.render_rows()
 
-    open_form_popup(
-        "Edit User", field_definitions, on_submit=on_submit, initial_data=row
-    )
+    open_form_popup("Update Data", field_definitions, on_submit=on_submit, initial_data=row)
 
 
 def on_delete(table_view):

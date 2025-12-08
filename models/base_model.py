@@ -89,16 +89,16 @@ class BaseModel:
         # -----------------------
         # DEBUG SQL PRINT
         # -----------------------
-        if table_name == 'users':
-            print("\n====== SQL DEBUG ======")
-            print("SQL:", final_query)
-            print("PARAMS:", params)
-            print("filters:", filters)
-            print("Showing Data count: ", len(data))
-            print_r(data)
-            if pagination:
-                print("Total Rows:", total_rows)
-            print("=======================\n")
+        # if table_name == 'users':
+            # print("\n====== SQL DEBUG ======")
+            # print("SQL:", final_query)
+            # print("PARAMS:", params)
+            # print("filters:", filters)
+            # print("Showing Data count: ", len(data))
+            # print_r(data)
+            # if pagination:
+            #     print("Total Rows:", total_rows)
+            # print("=======================\n")
 
 
 
@@ -167,3 +167,48 @@ class BaseModel:
         conn.close()
 
         return True
+
+
+
+    @classmethod
+    def get_visible_fields(cls):
+        """
+        Returns:
+            A sorted list of tuples: (field_name, alias)
+        - alias optional → defaults to Title Case of field name
+        - is_hidden optional → defaults to False
+        - order optional → defaults to 999
+        - field_definitions optional → returns empty list
+        """
+        # If model has NO field definitions → avoid crash
+        field_defs = getattr(cls, "field_definitions", {})
+        if not isinstance(field_defs, dict):
+            return []
+
+        visible_fields = []
+
+        for key, val in field_defs.items():
+            # val might not be a dict (bad input)
+            if not isinstance(val, dict):
+                val = {}
+
+            is_hidden = val.get("is_hidden", False)
+            if is_hidden:
+                continue
+
+            alias = val.get("alias") or key.replace("_", " ").title()
+            order = val.get("order", 999)
+
+            visible_fields.append((key, alias, order))
+
+        # Sort using order
+        visible_fields.sort(key=lambda x: x[2])
+
+        # Remove order before returning
+        return [(key, alias) for key, alias, _ in visible_fields]
+
+
+    @classmethod
+    def get_ordered_field_keys(cls):
+        """Returns only ordered field names."""
+        return [key for key, _ in cls.get_visible_fields()]

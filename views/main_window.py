@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import messagebox
 from models.navigation import Navigation
-from models.setting import Setting
+from models.Setting import Setting
 from views.right_panel import RightPanel  # Import the new RightPanel
 from utils.debug import print_r
 

@@ -1,11 +1,11 @@
 # from repositories.settings_repository import SettingsRepository
-from repositories.users_repository import UsersRepository
-from models.user import User
+from repositories.SettingsRepository import SettingsRepository
+from models.Setting import Setting
 from services.BaseService import BaseService
 
 class SettingsService(BaseService):
     def __init__(self):
-        super().__init__(UsersRepository, User)
+        super().__init__(SettingsRepository, Setting)
 
     # Override fetch_data for SettingsService
     def index(self, filters=None, pagination=False, items_per_page=5, page=1, search=None):
