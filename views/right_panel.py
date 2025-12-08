@@ -8,6 +8,9 @@ import traceback
 from datetime import datetime
 import tkinter.font as tkFont
 import psutil, os 
+from helpers.helpers import get_controller
+
+
 
 class RightPanel(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
@@ -45,9 +48,11 @@ class RightPanel(tk.Frame):
         # self.prev_btn.pack(side=tk.RIGHT, padx=10, pady=5)
                
         try:
-            controller_name = f"{nav_name}_controller"
-            controller_module = importlib.import_module(f"controllers.{controller_name}")
-            controller_class = getattr(controller_module, ctrlName)
+            # print(ctrlName)
+            # controller_name = f"{nav_name}_controller"
+            # controller_module = importlib.import_module(f"controllers.{controller_name}")
+            # controller_class = getattr(controller_module, ctrlName)
+            controller_class = get_controller(nav_name, ctrlName)
 
             # Fetch initial result (page 1)
             initial_result = controller_class.index(

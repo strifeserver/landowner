@@ -4,7 +4,7 @@ import os
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from models.user import User  # only once
-from requests.user_request import UserRequest
+from requests.UserRequest import UserRequest
 def test_index():
 
 

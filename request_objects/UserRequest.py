@@ -1,6 +1,6 @@
 # user_request.py
 from models.user import User
-from .rule_validator import RuleValidator
+from .RuleValidator import RuleValidator
 
 class UserRequest:
     def __init__(self, data, action='store'):
