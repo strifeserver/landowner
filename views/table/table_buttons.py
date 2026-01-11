@@ -1,6 +1,6 @@
 # table_buttons.py
 from utils.form_popup import open_form_popup
-
+from utils.debug import print_r
 
 def on_add(table_view):
     field_definitions = table_view.trigger_controller_method("create")
@@ -21,26 +21,32 @@ def on_add(table_view):
     open_form_popup("Insert Data", field_definitions, on_submit=on_submit)
 
 
-def on_edit(table_view):
-    print('ON EDIT')
-    print(table_view)
+def on_edit(table_view: "TableView"):
     selected = table_view.tree.selection()
     if not selected:
         return
-    index = int(selected[0])
-    row = table_view.filtered_data[index]
-    row_id = row.get("id")
 
+    # Get first selected item
+    item_id = selected[0]
+
+    # Tkinter Treeview selection returns iid (not index)
+    # To get the row object, we can use the index from filtered_data
+    item_index = table_view.tree.index(item_id)
+    row = table_view.filtered_data[item_index]
+
+    # Now pass the full row object to your controller
+    table_view.trigger_controller_method("edit", data=row)
 
 
     field_definitions = table_view.trigger_controller_method("create")  # reuse field metadata
     
-    print('FIELD DEFINITIONS')
-    print(table_view.trigger_controller_method("create"))
-    
+    print('Table Buttons')
+    print(' ')
+
 
     def on_submit(data):
-        table_view.trigger_controller_method("update", id=row_id, data=data)
+     
+        table_view.trigger_controller_method("update", id=row.id, data=data)
 
         # Refresh table
         table_view.original_data = table_view.controller_callback() or []

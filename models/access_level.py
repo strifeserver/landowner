@@ -40,17 +40,6 @@ class AccessLevel(BaseModel):
         for field in self.fields:
             setattr(self, field, kwargs.get(field))
 
-    @classmethod
-    def store(cls, **kwargs):
-        return super().store_sqlite(DB_PATH, cls.table_name, **kwargs)
-
-    @classmethod
-    def update(cls, id, **kwargs):
-        return super().update_sqlite(DB_PATH, cls.table_name, id, **kwargs)
-
-    @classmethod
-    def destroy(cls, id):
-        return super().destroy_sqlite(DB_PATH, cls.table_name, id)
 
     @classmethod
     def index(
@@ -96,6 +85,73 @@ class AccessLevel(BaseModel):
             table_alias=table_alias,
             debug=debug,
         )
+
+    @classmethod
+    def store(cls, **kwargs):
+        return super().store_sqlite(DB_PATH, cls.table_name, **kwargs)
+
+    # -----------------------
+    # GET single row (for edit)
+    # -----------------------
+    @classmethod
+    def edit(cls, id=None, filters=None, debug=False, custom_query=None, custom_fields=None, table_alias=None):
+        """
+        Fetch a single row for editing.
+
+        Args:
+            id (int | str | object): fetch by id or object (object must have 'id' attribute)
+            filters (dict): fetch by custom field(s)
+            debug (bool): show SQL debug
+            custom_query (str): optional custom SQL (e.g., with JOINs)
+            custom_fields (list): fields for mapping when using custom_query
+            table_alias (str): optional table alias for ambiguous fields
+
+        Returns:
+            Model instance or None
+        """
+        # -----------------------
+        # If id is an object, extract its id
+        # -----------------------
+        if id and not isinstance(id, (int, str)):
+            try:
+                id = id.id
+            except AttributeError:
+                raise ValueError("Invalid object passed as id — missing 'id' attribute")
+
+        # Default: fetch by id if provided
+        if id is not None:
+            filters = {"id": id}
+
+        # If no custom query, just select all fields
+        if not custom_query:
+            final_fields = cls.fields
+            table_alias = table_alias or cls.table_name
+            custom_query = f"SELECT {', '.join(cls.fields)} FROM {cls.table_name}"
+        else:
+            final_fields = custom_fields or cls.fields
+            table_alias = table_alias or "t"
+
+        # Call the base method
+        return super().edit_sqlite(
+            DB_PATH,
+            cls.table_name,
+            cls.fields,
+            filters=filters,
+            custom_query=custom_query,
+            custom_fields=final_fields,
+            table_alias=table_alias,
+            debug=debug,
+        )
+
+
+
+    @classmethod
+    def update(cls, id, data):
+        return super().update_sqlite(DB_PATH, cls.table_name, id, **kwargs)
+
+    @classmethod
+    def destroy(cls, id):
+        return super().destroy_sqlite(DB_PATH, cls.table_name, id)
 
     @classmethod
     def get_dynamic_field_definitions(cls):

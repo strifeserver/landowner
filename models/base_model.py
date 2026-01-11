@@ -163,6 +163,85 @@ class BaseModel:
 
 
 
+    @classmethod
+    def edit_sqlite(
+        cls,
+        db_path,
+        table_name,
+        fields,
+        row_id=None,
+        filters=None,
+        custom_query=None,
+        custom_fields=None,
+        table_alias=None,
+        debug=False,
+    ):
+        """
+        Fetch a single row from SQLite, either by ID or custom filters.
+
+        Args:
+            db_path (str): Path to SQLite database
+            table_name (str): Table name
+            fields (list): List of fields to select
+            row_id (int, optional): ID of row to fetch
+            filters (dict, optional): Other key=value filters
+            custom_query (str, optional): Custom SELECT query
+            custom_fields (list, optional): Map SELECT columns → object attributes
+            table_alias (str, optional): Alias for main table
+            debug (bool, optional): Print debug info
+
+        Returns:
+            Single object of cls or None
+        """
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        final_fields = custom_fields or fields
+        base_query = custom_query or f"SELECT {', '.join(fields)} FROM {table_name}"
+        alias = table_alias or table_name
+
+        where_clauses = []
+        params = []
+
+        # ID filter
+        if row_id is not None:
+            if "id" in getattr(cls, "get_ambiguous_fields", lambda: [])():
+                where_clauses.append(f"{alias}.id = ?")
+            else:
+                where_clauses.append("id = ?")
+            params.append(row_id)
+
+        # Other filters
+        if filters:
+            ambiguous_fields = getattr(cls, "get_ambiguous_fields", lambda: [])()
+            for key, value in filters.items():
+                if value is None or value == "":
+                    continue
+                field_name = f"{alias}.{key}" if key in ambiguous_fields else key
+                where_clauses.append(f"{field_name} = ?")
+                params.append(value)
+
+        # Build final query
+        final_query = base_query
+        if where_clauses:
+            final_query += " WHERE " + " AND ".join(where_clauses)
+        final_query += " LIMIT 1"  # always fetch only one
+
+        if debug:
+            print("\n====== SQL GET DEBUG ======")
+            print("SQL Query:", final_query)
+            print("Params:", params)
+            print("===========================\n")
+
+        cursor.execute(final_query, params)
+        row = cursor.fetchone()
+        conn.close()
+
+        if row:
+            return cls(**dict(zip(final_fields, row)))
+        return None
+
+
 
 
     @classmethod

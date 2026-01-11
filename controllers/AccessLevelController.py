@@ -1,9 +1,9 @@
-# controllers/AccessLevelController.py
+# controllers/users_controller.py
 from models.access_level import AccessLevel
 # from ..requests.UserRequest import UserRequest
 from request_objects.UserRequest import UserRequest
 from services.AccessLevelService import AccessLevelService
-
+from utils.debug import print_r
 
 class AccessLevelController:
     
@@ -24,28 +24,28 @@ class AccessLevelController:
 
     @staticmethod
     def create():
-        field_definitions = User.get_dynamic_field_definitions()
+        field_definitions = AccessLevel.get_dynamic_field_definitions()
         return field_definitions
 
     @staticmethod
     def store(data):
         service = AccessLevelService()        
-        return service.store_user(data)
+        return service.store(data)
 
     @staticmethod
     def edit(id):
         service = AccessLevelService()     
-        result = service.get_user(id)
+        result = service.edit(id)
         return result
 
     @staticmethod
     def update(id, data):
         service = AccessLevelService()   
-        print("Users Controller Update")
-        return service.update_user(id, data)
+        print("Controller Update")
+        return service.update(id, data)
 
     @staticmethod
     def destroy(id):
         service = AccessLevelService()   
-        print("Users Controller Delete")
-        return service.delete_user(id)
+        print("Controller Delete")
+        return service.delete(id)

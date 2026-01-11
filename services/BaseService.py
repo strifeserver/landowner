@@ -52,25 +52,25 @@ class BaseService:
         }
 
 
-    def fetch_one(self, id):
-        return self.repository.find_by_id(id)
+    def edit(self, id):
+        return self.model.edit(id)
 
     def store(self, data):
         return self.repository.store(data)
 
     def update(self, id, data):
         # Handle alias fields if model is provided
-        if self.model:
-            origin_map = {
-                key: val["origin_field"]
-                for key, val in self.model.field_definitions.items()
-                if val.get("origin_field")
-            }
-            for alias_field, original_field in origin_map.items():
-                if alias_field in data:
-                    data[original_field] = data.pop(alias_field)
-
-        return self.repository.update(id, data)
+        # if self.model:
+        #     origin_map = {
+        #         key: val["origin_field"]
+        #         for key, val in self.model.field_definitions.items()
+        #         if val.get("origin_field")
+        #     }
+        #     for alias_field, original_field in origin_map.items():
+        #         if alias_field in data:
+        #             data[original_field] = data.pop(alias_field)
+   
+        return self.model.update(id, data)
 
     def delete(self, id):
         return self.repository.destroy(id)

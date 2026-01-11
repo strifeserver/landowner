@@ -3,7 +3,7 @@ from models.user import User
 # from ..requests.UserRequest import UserRequest
 from request_objects.UserRequest import UserRequest
 from services.UsersService import UsersService
-
+from utils.debug import print_r
 
 class UsersController:
     
@@ -35,7 +35,7 @@ class UsersController:
     @staticmethod
     def edit(id):
         service = UsersService()     
-        result = service.get_user(id)
+        result = service.edit(id)
         return result
 
     @staticmethod

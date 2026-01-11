@@ -2,6 +2,7 @@
 import os
 from models.base_model import BaseModel
 from models.access_level import AccessLevel
+from utils.debug import print_r
 
 DB_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "data", "data.db"
@@ -83,6 +84,61 @@ class User(BaseModel):
     @classmethod
     def store(cls, **kwargs):
         return super().store_sqlite(DB_PATH, cls.table_name, **kwargs)
+
+
+    # -----------------------
+    # GET single user (for edit)
+    # -----------------------
+    @classmethod
+    def edit(cls, id=None, filters=None, debug=False):
+        """
+        Fetch a single user row.
+
+        Args:
+            id (int | str | User object): fetch by user id or object
+            filters (dict): fetch by custom field(s)
+            debug (bool): show SQL debug
+        Returns:
+            User instance or None
+        """
+        # -----------------------
+        # If id is a User object, extract its id
+        # -----------------------
+        if id and not isinstance(id, (int, str)):
+            try:
+                id = id.id
+            except AttributeError:
+                raise ValueError("Invalid object passed as id — missing 'id' attribute")
+
+        # Default: fetch by id if provided
+        if id is not None:
+            filters = {"id": id}
+
+        # -----------------------
+        # Use join query to include access_level_name
+        # -----------------------
+        user_fields = [f"u.{field}" for field in cls.fields]
+        join_query = f"""
+            SELECT
+                {', '.join(user_fields)},
+                a.access_level_name AS access_level_name
+            FROM {cls.table_name} u
+            LEFT JOIN access_levels a
+                ON u.access_level = a.id
+        """
+        custom_fields = cls.fields + ["access_level_name"]
+
+        return super().edit_sqlite(
+            DB_PATH,
+            cls.table_name,
+            cls.fields,
+            filters=filters,
+            custom_query=join_query,
+            custom_fields=custom_fields,
+            table_alias="u",
+            debug=debug,
+        )
+
 
     @classmethod
     def update(cls, id, **kwargs):

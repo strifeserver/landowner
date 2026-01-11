@@ -59,7 +59,6 @@ class TableView(tk.Frame):
         self.render_rows()
 
     def create_treeview_table(self, parent):
-        
         #Table style Config
         table_style_config = {
             "table_height": 10,   
@@ -138,9 +137,9 @@ class TableView(tk.Frame):
         title_frame.pack(fill=tk.X, pady=(5, 2))
         tk.Label(title_frame, text=title, font=("Arial", 12, "bold")).pack(side=tk.LEFT, padx=10)
 
-        tk.Button(title_frame, text="Add", command=lambda: on_add(self), width=10).pack(
-            side=tk.RIGHT, padx=10
-        )
+        tk.Button(title_frame, text="Add", command=lambda: on_add(self), width=10).pack(side=tk.RIGHT, padx=10)
+        
+        
         self.edit_btn = tk.Button(
             title_frame,
             text="Edit",
@@ -149,6 +148,8 @@ class TableView(tk.Frame):
             width=10,
         )
         self.edit_btn.pack(side=tk.RIGHT, padx=10)
+        
+        
         self.delete_btn = tk.Button(
             title_frame,
             text="Delete",
@@ -312,23 +313,22 @@ class TableView(tk.Frame):
         self.render_rows()
 
     def trigger_controller_method(self, method_name, id=None, data=None):
-        
         if not hasattr(self, "controller_class"):
             print("Controller class not set.")
             return
-    
+
         method = getattr(self.controller_class, method_name, None)
-        
         if not callable(method):
             print(f"Method '{method_name}' not found in controller.")
             return
+
         try:
             if method_name == "create":
                 return method()
             elif method_name == "store":
                 return method(data)
             elif method_name == "edit":
-                return method(id)
+                return method(data)
             elif method_name == "update":
                 return method(id, data)
             elif method_name == "destroy":
