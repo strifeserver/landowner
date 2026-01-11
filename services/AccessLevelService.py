@@ -6,7 +6,7 @@ from services.BaseService import BaseService
 
 class AccessLevelService(BaseService):
     def __init__(self):
-        super().__init__(UsersRepository, User)
+        super().__init__(AccessLevel)
 
 # Example usage:
 

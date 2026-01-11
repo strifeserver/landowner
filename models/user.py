@@ -1,9 +1,8 @@
 # models/user.py
 import os
-from datetime import datetime
 from models.base_model import BaseModel
-from models.access_level import AccessLevel  # <-- make sure this import exists
-from utils.debug import print_r
+from models.access_level import AccessLevel
+
 DB_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "data", "data.db"
 )
@@ -12,61 +11,49 @@ DB_PATH = os.path.join(
 class User(BaseModel):
     table_name = "users"
 
+    # -----------------------
+    # Field Definitions (UI / metadata)
+    # -----------------------
     field_definitions = {
         "id": {"alias": "ID", "is_hidden": False, "order": 0, "editable": False},
-        "customId": {
-            "alias": "Employee ID",
-            "is_hidden": False,
-            "order": 1,
-            "editable": True,
-        },
-        "username": {
-            "alias": "Username",
-            "is_hidden": False,
-            "order": 2,
-            "editable": True,
-        },
-        "password": {"alias": "Password", "is_hidden": True, "order": 3},
-        "email": {"alias": "Email", "is_hidden": False, "order": 4, "editable": True},
+        "customId": {"alias": "Employee ID", "order": 1, "editable": True},
+        "username": {"alias": "Username", "order": 2, "editable": True},
+        "password": {"alias": "Password", "is_hidden": True},
+        "email": {"alias": "Email", "order": 4, "editable": True},
         "access_level": {
             "alias": "Access Level",
             "is_hidden": True,
-            "order": 5,
             "editable": True,
-            "options": [],  # Will be populated dynamically
+            "options": [],
         },
         "account_status": {
             "alias": "Account Status",
-            "is_hidden": False,
             "order": 6,
             "options": ["active", "inactive", "pending"],
-            "editable": True,
             "capitalize1st": True,
         },
         "is_locked": {
             "alias": "Locked",
-            "is_hidden": False,
             "order": 7,
             "options": [True, False],
-            "editable": True,
-            "subtitute_table_values": [{"label":"Enabled","value":True},{"label":"Disabled","value":False}]
+            "subtitute_table_values": [
+                {"label": "Enabled", "value": True},
+                {"label": "Disabled", "value": False},
+            ],
         },
-        "temporary_password": {
-            "alias": "Temporary Password",
-            "is_hidden": True,
-            "order": 8,
-        },
+        "temporary_password": {"alias": "Temporary Password", "is_hidden": True},
         "access_level_name": {
             "alias": "Access Level",
-            "is_hidden": False,
             "order": 9,
             "origin_field": "access_level",
         },
-        "created_at": {"alias": "Date Created", "is_hidden": False, "order": 10},
-        "updated_at": {"alias": "Date Updated", "is_hidden": False, "order": 11},
+        "created_at": {"alias": "Date Created", "order": 10},
+        "updated_at": {"alias": "Date Updated", "order": 11},
     }
 
-    # Only DB columns
+    # -----------------------
+    # Actual DB columns (users table)
+    # -----------------------
     fields = [
         "id",
         "customId",
@@ -81,10 +68,18 @@ class User(BaseModel):
         "updated_at",
     ]
 
+    # -----------------------
+    # Constructor
+    # -----------------------
     def __init__(self, **kwargs):
         for field in self.fields:
             setattr(self, field, kwargs.get(field))
+        # Joined field
+        self.access_level_name = kwargs.get("access_level_name")
 
+    # -----------------------
+    # CRUD wrappers
+    # -----------------------
     @classmethod
     def store(cls, **kwargs):
         return super().store_sqlite(DB_PATH, cls.table_name, **kwargs)
@@ -97,31 +92,63 @@ class User(BaseModel):
     def destroy(cls, id):
         return super().destroy_sqlite(DB_PATH, cls.table_name, id)
 
+    # -----------------------
+    # INDEX (with JOIN)
+    # -----------------------
     @classmethod
-    def index(cls, filters=None, search=None, pagination=False, items_per_page=10, page=1):
+    def index(
+        cls,
+        filters=None,
+        search=None,
+        pagination=False,
+        items_per_page=10,
+        page=1,
+        debug=False,
+    ):
+        # Explicitly prefix user fields to avoid ambiguity
+        user_fields = [f"u.{field}" for field in cls.fields]
+
+        join_query = f"""
+            SELECT
+                {', '.join(user_fields)},
+                a.access_level_name AS access_level_name
+            FROM {cls.table_name} u
+            LEFT JOIN access_levels a
+                ON u.access_level = a.id
+        """
+
+        # Map SELECT columns → object attributes
+        custom_fields = cls.fields + ["access_level_name"]
+
         return super().index_sqlite(
             DB_PATH,
             cls.table_name,
             cls.fields,
-            filters,
-            search,
-            pagination,
-            items_per_page,
-            page,
+            filters=filters,
+            search=search,
+            pagination=pagination,
+            items_per_page=items_per_page,
+            page=page,
+            custom_query=join_query,
+            custom_fields=custom_fields,
+            table_alias="u",   # ✅ important
+            debug=debug,
         )
 
+    # -----------------------
+    # Dynamic select options
+    # -----------------------
     @classmethod
     def get_dynamic_field_definitions(cls):
-        """Injects access_level options dynamically based on AccessLevel.index()"""
         field_defs = dict(cls.field_definitions)
 
         try:
             access_levels = AccessLevel.index()
-            field_defs["access_level_name"]["options"] = [
-                {"label": al.access_level_name, "value": al.id} for al in access_levels
+            field_defs["access_level"]["options"] = [
+                {"label": al.access_level_name, "value": al.id}
+                for al in access_levels
             ]
-        except Exception as e:
-            print("Failed to load access level options:", e)
-            field_defs["access_level_name"]["options"] = []
+        except Exception:
+            field_defs["access_level"]["options"] = []
 
         return field_defs

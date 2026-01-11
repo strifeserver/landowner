@@ -15,7 +15,9 @@ class TableView(tk.Frame):
         self.advance_filter = {}
         self.current_page = 1
         self.items_per_page = 10
-
+        self.total_rows = 0
+        self.total_pages = 1
+        
         if columns is None:
             if (
                 controller_callback
@@ -188,44 +190,49 @@ class TableView(tk.Frame):
 
     def render_rows(self):
         if self.controller_callback:
-            
-            window_open = (hasattr(self, "filter_window") and self.filter_window.winfo_exists())
+
+            window_open = (
+                hasattr(self, "filter_window")
+                and self.filter_window.winfo_exists()
+            )
 
             if window_open:
-                print("Window is open")
-                print(self.advance_filter)
-                self.filtered_data = self.controller_callback(
-                    filters=self.advance_filter, page=self.current_page
+                rows = self.controller_callback(
+                    filters=self.advance_filter,
+                    page=self.current_page,
                 )
             else:
-                print("Window is closed")
-                self.filtered_data = self.controller_callback(
+                rows = self.controller_callback(
                     searchAll=self.search_entry.get().strip().lower(),
-                    page=self.current_page
+                    page=self.current_page,
                 )
-                        
 
-            
+            # ✅ rows ONLY — pagination already set by controller_callback
+            self.filtered_data = rows or []
+
+        # -----------------------
+        # Render table rows
+        # -----------------------
         self.tree.delete(*self.tree.get_children())
-        for idx, row in enumerate(self.filtered_data):
-            values = [row.get(col, "") for col in self.columns]
-            tag = "evenrow" if idx % 2 == 0 else "oddrow"
-            self.tree.insert("", tk.END, iid=str(idx), values=values, tags=(tag,))
 
-        self.edit_btn.config(state=tk.DISABLED)
-        self.delete_btn.config(state=tk.DISABLED)
+        for idx, row in enumerate(self.filtered_data):
+            values = [getattr(row, col, "") for col in self.columns]
+            tag = "evenrow" if idx % 2 == 0 else "oddrow"
+            self.tree.insert("", tk.END, values=values, tags=(tag,))
 
         showing = len(self.filtered_data)
-        total = getattr(self, "total_rows", showing)
-        total_pages = getattr(self, "total_pages", 1)
 
         self.page_label.config(
-            text=f"Page {self.current_page} / {total_pages}   (Showing {showing} of {total} rows)"
+            text=f"Page {self.current_page} / {self.total_pages}   "
+                f"(Showing {showing} of {self.total_rows} rows)"
         )
 
-        # Enable/disable navigation buttons
-        self.prev_btn.config(state=tk.NORMAL if self.current_page > 1 else tk.DISABLED)
-        self.next_btn.config(state=tk.NORMAL if self.current_page < total_pages else tk.DISABLED)
+        self.prev_btn.config(
+            state=tk.NORMAL if self.current_page > 1 else tk.DISABLED
+        )
+        self.next_btn.config(
+            state=tk.NORMAL if self.current_page < self.total_pages else tk.DISABLED
+        )
 
 
     def load_previous_page(self):
@@ -234,8 +241,10 @@ class TableView(tk.Frame):
             self.render_rows()
 
     def load_next_page(self):
-        self.current_page += 1
-        self.render_rows()
+        if hasattr(self, "total_pages") and self.current_page < self.total_pages:
+            self.current_page += 1
+            self.render_rows()
+
 
     # def on_add(self):
     #     self.trigger_controller_method("create")

@@ -1,24 +1,35 @@
 # services/BaseService.py
+from utils.debug import print_r
 
 class BaseService:
-    
-    
-    def __init__(self, repository, model=None):
-
-        self.repository = repository
+    def __init__(self, model):
         self.model = model
 
- 
-    def index(self, filters=None, pagination=False, items_per_page=5, page=1, search=None):
-        results = self.repository.find_all(filters, search)
-        
-        # Optional: add access level names or any other repo-specific processing
-        if hasattr(self.repository, "add_access_level_names"):
-            results = self.repository.add_access_level_names(results)
-        
-        # Process fields if model is provided
-        if self.model:
-            for row in results:
+    def index(self, filters=None, pagination=False, items_per_page=5, page=1, search=None, debug=False):
+
+        results = self.model.index(
+            filters=filters,
+            search=search,
+            pagination=pagination,
+            items_per_page=items_per_page,
+            page=page,
+            debug=debug
+        )
+
+        if isinstance(results, dict) and "data" in results:
+            data = results["data"]
+            total_rows = results["total_rows"]
+            total_pages = results["total_pages"]
+            last_page = results["last_page"]
+        else:
+            data = results
+            total_rows = len(data)
+            total_pages = 1
+            last_page = 1
+
+        # Field post-processing (OK to keep)
+        if hasattr(self.model, "field_definitions") and self.model.field_definitions:
+            for row in data:
                 for field_key, field_def in self.model.field_definitions.items():
                     if field_key in row.__dict__:
                         value = row.__dict__[field_key]
@@ -27,26 +38,19 @@ class BaseService:
                             row.__dict__[field_key] = value[:1].upper() + value[1:]
 
                         if "subtitute_table_values" in field_def:
-                            value_map = {entry["value"]: entry["label"] for entry in field_def["subtitute_table_values"]}
+                            value_map = {
+                                entry["value"]: entry["label"]
+                                for entry in field_def["subtitute_table_values"]
+                            }
                             row.__dict__[field_key] = value_map.get(value, value)
 
-        total_rows = len(results)
-        total_pages = (total_rows + items_per_page - 1) // items_per_page
-        last_page = total_pages
-
-        if pagination:
-            start = (page - 1) * items_per_page
-            end = start + items_per_page
-            page_data = results[start:end]
-        else:
-            page_data = results
-
         return {
-            "data": page_data,
+            "data": data,              # already paginated
             "total_rows": total_rows,
             "total_pages": total_pages,
             "last_page": last_page,
         }
+
 
     def fetch_one(self, id):
         return self.repository.find_by_id(id)

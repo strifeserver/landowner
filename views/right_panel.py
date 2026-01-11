@@ -85,7 +85,14 @@ class RightPanel(tk.Frame):
                 # ------------------------------------------
                 # 2. PAGINATION CALLBACK
                 # ------------------------------------------
-                def controller_callback(filters=None, searchAll=None, page=1):
+                def controller_callback(
+                    filters=None,
+                    searchAll=None,
+                    pagination=False,
+                    items_per_page=10,
+                    page=1,
+                    **kwargs
+                ):
                     try:
                         result = controller_class.index(
                             filters=filters,
@@ -99,7 +106,8 @@ class RightPanel(tk.Frame):
                         table.total_pages = result.get("total_pages", 1)
                         table.last_page = result.get("last_page", 1)
 
-                        return [obj.__dict__ for obj in result["data"]]
+                        
+                        return result["data"]
 
                     except Exception as err:
                         print("Filter error:", err)

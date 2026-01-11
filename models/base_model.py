@@ -7,6 +7,17 @@ class BaseModel:
     # Add your JSON helpers here if needed...
 
     @classmethod
+    def get_ambiguous_fields(cls):
+        """
+        Returns a list of fields that need table alias prefix to avoid ambiguity
+        """
+        # Common fields across tables that might collide in joins
+        return ["id", "created_at", "updated_at"]
+
+
+
+
+    @classmethod
     def index_sqlite(
         cls,
         db_path,
@@ -17,55 +28,89 @@ class BaseModel:
         pagination=False,
         items_per_page=10,
         page=1,
+        custom_query=None,
+        custom_fields=None,
+        debug=False,
+        table_alias=None,
     ):
+        """
+        Generic SQLite SELECT handler with optional LEFT JOINs, filters, search, and pagination.
+
+        Args:
+            db_path (str): Path to SQLite database
+            table_name (str): Main table name
+            fields (list): List of main table fields
+            filters (dict): Filters in key=value form
+            search (str): Search term applied across all selected fields
+            pagination (bool): Whether to paginate
+            items_per_page (int): Number of items per page
+            page (int): Page number (1-based)
+            custom_query (str): Custom SELECT query (overrides default SELECT)
+            custom_fields (list): Fields corresponding to custom_query for mapping
+            debug (bool): Print SQL debug info
+            table_alias (str): Alias for main table (used in joins and ambiguous fields)
+        """
+        import sqlite3
 
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        base_query = f"SELECT {', '.join(fields)} FROM {table_name}"
+        final_fields = custom_fields or fields
+        base_query = custom_query or f"SELECT {', '.join(fields)} FROM {table_name}"
+
+        # Use alias if provided, else default to table_name
+        alias = table_alias or table_name
+
+        # Get ambiguous fields from the model
+        ambiguous_fields = getattr(cls, "get_ambiguous_fields", lambda: [])()
+
         where_clauses = []
         params = []
 
         # -----------------------
-        # ADVANCED FILTERS
+        # Filters
         # -----------------------
         if filters:
             for key, value in filters.items():
                 if value is None or value == "":
                     continue
 
-                # DATE RANGE: field_from, field_to
+                # Automatically prefix ambiguous fields with main table alias
+                field_name = f"{alias}.{key}" if key in ambiguous_fields else key
+
                 if key.endswith("_from"):
-                    field = key.replace("_from", "")
-                    where_clauses.append(f"{field} >= ?")
+                    field_name = field_name.replace("_from", "")
+                    where_clauses.append(f"{field_name} >= ?")
                     params.append(value)
-
                 elif key.endswith("_to"):
-                    field = key.replace("_to", "")
-                    where_clauses.append(f"{field} <= ?")
+                    field_name = field_name.replace("_to", "")
+                    where_clauses.append(f"{field_name} <= ?")
                     params.append(value)
-
                 else:
-                    # Case-insensitive LIKE for normal filters
-                    where_clauses.append(f"LOWER({key}) LIKE ?")
+                    where_clauses.append(f"LOWER({field_name}) LIKE ?")
                     params.append(f"%{str(value).lower()}%")
 
         # -----------------------
-        # SEARCH (Top-right box)
+        # Search
         # -----------------------
         if search and search.strip() != "":
-            search_clauses = [f"LOWER({col}) LIKE ?" for col in fields]
+            search_clauses = [
+                f"LOWER({alias}.{col}) LIKE ?" if col in ambiguous_fields else f"LOWER({col}) LIKE ?"
+                for col in final_fields
+            ]
             where_clauses.append("(" + " OR ".join(search_clauses) + ")")
-            for _ in fields:
+            for _ in final_fields:
                 params.append(f"%{search.lower()}%")
 
-        # Apply WHERE conditions
+        # -----------------------
+        # Apply WHERE
+        # -----------------------
         final_query = base_query
         if where_clauses:
             final_query += " WHERE " + " AND ".join(where_clauses)
 
         # -----------------------
-        # PAGINATION
+        # Pagination
         # -----------------------
         total_rows = None
         if pagination:
@@ -76,31 +121,32 @@ class BaseModel:
             offset = (page - 1) * items_per_page
             final_query += f" LIMIT {items_per_page} OFFSET {offset}"
 
-        # Execute main query
+        # -----------------------
+        # Execute query
+        # -----------------------
         cursor.execute(final_query, params)
         rows = cursor.fetchall()
         conn.close()
 
-        # Convert rows → class objects
-        data = [cls(**dict(zip(fields, row))) for row in rows]
-
-
+        # Map rows → class objects
+        data = [cls(**dict(zip(final_fields, row))) for row in rows]
 
         # -----------------------
-        # DEBUG SQL PRINT
+        # Debug
         # -----------------------
-        # if table_name == 'users':
-            # print("\n====== SQL DEBUG ======")
-            # print("SQL:", final_query)
-            # print("PARAMS:", params)
-            # print("filters:", filters)
-            # print("Showing Data count: ", len(data))
-            # print_r(data)
-            # if pagination:
-            #     print("Total Rows:", total_rows)
-            # print("=======================\n")
-
-
+        if debug:
+            print("\n====== SQL DEBUG ======")
+            print("SQL Query:", final_query)
+            print("Params:", params)
+            if filters:
+                print("Filters:", filters)
+            if pagination:
+                print("Page:", page, "Items per page:", items_per_page)
+                print("Total Rows (before pagination):", total_rows)
+            print("data:")
+            from utils.debug import print_r
+            print_r(data)
+            print("=======================\n")
 
         # -----------------------
         # Conditional return
@@ -114,6 +160,9 @@ class BaseModel:
             }
 
         return data
+
+
+
 
 
     @classmethod
