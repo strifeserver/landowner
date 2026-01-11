@@ -1,6 +1,5 @@
 # services/UsersService.py
 
-from repositories.users_repository import UsersRepository
 from models.user import User
 from services.BaseService import BaseService
 

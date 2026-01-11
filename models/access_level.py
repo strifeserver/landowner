@@ -53,16 +53,48 @@ class AccessLevel(BaseModel):
         return super().destroy_sqlite(DB_PATH, cls.table_name, id)
 
     @classmethod
-    def index(cls, filters=None, search=None, pagination=False, items_per_page=10, page=1):
+    def index(
+        cls,
+        filters=None,
+        search=None,
+        pagination=False,
+        items_per_page=10,
+        page=1,
+        custom_query=None,       # optional custom SQL
+        custom_fields=None,      # optional, matches SELECT columns
+        table_alias=None,        # optional alias for table in query
+        debug=False,
+    ):
+        """
+        Generic index method.
+        - Works with or without joins.
+        - custom_query overrides default SELECT.
+        - custom_fields required if using custom_query.
+        """
+        # Default SELECT query if no custom_query
+        if not custom_query:
+            prefix = f"{table_alias}." if table_alias else ""
+            fields_to_select = [f"{prefix}{f}" for f in cls.fields]
+            select_clause = ", ".join(fields_to_select)
+            custom_query = f"SELECT {select_clause} FROM {cls.table_name} {table_alias or ''}"
+
+        if not custom_fields:
+            custom_fields = cls.fields
+
+        # Call lower-level method (index_sqlite) with everything
         return super().index_sqlite(
             DB_PATH,
             cls.table_name,
             cls.fields,
-            filters,
-            search,
-            pagination,
-            items_per_page,
-            page,
+            filters=filters,
+            search=search,
+            pagination=pagination,
+            items_per_page=items_per_page,
+            page=page,
+            custom_query=custom_query,
+            custom_fields=custom_fields,
+            table_alias=table_alias,
+            debug=debug,
         )
 
     @classmethod

@@ -1,6 +1,5 @@
 # services/AccessLevelService.py
 
-from repositories.users_repository import UsersRepository
 from models.access_level import AccessLevel
 from services.BaseService import BaseService
 

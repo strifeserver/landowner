@@ -2,7 +2,7 @@
 from models.access_level import AccessLevel
 # from ..requests.UserRequest import UserRequest
 from request_objects.UserRequest import UserRequest
-from services.UsersService import UsersService
+from services.AccessLevelService import AccessLevelService
 
 
 class AccessLevelController:
@@ -10,7 +10,7 @@ class AccessLevelController:
     @staticmethod
     def index(filters=None, pagination=False, items_per_page=5, page=1, searchAll=None):
         
-        service = UsersService()
+        service = AccessLevelService()
 
         indexData = service.index(
             filters=filters or {},
@@ -29,23 +29,23 @@ class AccessLevelController:
 
     @staticmethod
     def store(data):
-        service = UsersService()        
+        service = AccessLevelService()        
         return service.store_user(data)
 
     @staticmethod
     def edit(id):
-        service = UsersService()     
+        service = AccessLevelService()     
         result = service.get_user(id)
         return result
 
     @staticmethod
     def update(id, data):
-        service = UsersService()   
+        service = AccessLevelService()   
         print("Users Controller Update")
         return service.update_user(id, data)
 
     @staticmethod
     def destroy(id):
-        service = UsersService()   
+        service = AccessLevelService()   
         print("Users Controller Delete")
         return service.delete_user(id)

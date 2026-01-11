@@ -22,7 +22,8 @@ def on_add(table_view):
 
 
 def on_edit(table_view):
-    
+    print('ON EDIT')
+    print(table_view)
     selected = table_view.tree.selection()
     if not selected:
         return

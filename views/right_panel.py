@@ -36,6 +36,9 @@ class RightPanel(tk.Frame):
         self.create_top_right_account()
 
         try:
+            print('right_panel.py')
+            print('controller name')
+            print(ctrlName)
             controller_class = get_controller(ctrlName)
 
             # Fetch initial result (page 1)
