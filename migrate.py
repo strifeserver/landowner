@@ -2,51 +2,84 @@ import os
 import sqlite3
 import importlib.util
 import sys
+# python migrate.py --reset
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "data", "data.db")
-MIGRATIONS_DIR = os.path.join(os.path.dirname(__file__), "migrations")
+BASE_DIR = os.path.dirname(__file__)
+DB_PATH = os.path.join(BASE_DIR, "data", "data.db")
+MIGRATIONS_DIR = os.path.join(BASE_DIR, "migrations")
+
+
+def log_db_state(prefix=""):
+    print(f"{prefix}DB PATH       : {DB_PATH}")
+    print(f"{prefix}DB EXISTS     : {os.path.exists(DB_PATH)}")
+    if os.path.exists(DB_PATH):
+        print(f"{prefix}DB FILE SIZE  : {os.path.getsize(DB_PATH)} bytes")
+    print("-" * 60)
 
 
 def get_migration_files():
-    files = sorted(f for f in os.listdir(MIGRATIONS_DIR) if f.endswith('.py'))
+    files = sorted(f for f in os.listdir(MIGRATIONS_DIR) if f.endswith(".py"))
+    print(f"Found migrations: {files}")
+    print("-" * 60)
     return files
 
 
 def run_migration(file):
     filepath = os.path.join(MIGRATIONS_DIR, file)
-    spec = importlib.util.spec_from_file_location("migration", filepath)
+
+    print(f"Loading migration file: {filepath}")
+
+    spec = importlib.util.spec_from_file_location(file, filepath)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
 
     if hasattr(module, "migrate"):
-        print(f"Running {file}...")
+        print(f"Running migration: {file}")
+        log_db_state("  ")
+
         module.migrate()
-        print(f"{file} done.\n")
+
+        print(f"Finished migration: {file}")
+        log_db_state("  ")
+        print()
     else:
-        print(f"{file} has no 'migrate()' function. Skipped.\n")
+        print(f"{file} has no migrate() function. Skipped.\n")
 
 
 def reset_database():
+    print("RESET DATABASE REQUESTED")
+    log_db_state("  BEFORE RESET -> ")
+
     if os.path.exists(DB_PATH):
-        print(f"Deleting database: {DB_PATH}")
+        print(f"Deleting database file: {DB_PATH}")
         os.remove(DB_PATH)
+        print("Database file deleted.")
     else:
-        print("Database does not exist, skipping delete.")
+        print("Database file does not exist. Nothing to delete.")
+
+    log_db_state("  AFTER RESET  -> ")
+    print()
 
 
 def main():
-    # Handle --reset
-    if "--reset" in sys.argv:
-        print("RESET mode enabled.")
-        reset_database()
-        print("Database reset completed.\n")
+    print("=" * 60)
+    print("PYTHON SQLITE MIGRATION RUNNER")
+    print("=" * 60)
 
-    print("Running migrations...\n")
+    if "--reset" in sys.argv:
+        print("RESET MODE ENABLED")
+        reset_database()
+    else:
+        print("RESET MODE NOT ENABLED")
+
+    print("Starting migration process...\n")
 
     for migration in get_migration_files():
         run_migration(migration)
 
-    print("All migrations completed!")
+    print("=" * 60)
+    print("ALL MIGRATIONS COMPLETED")
+    print("=" * 60)
 
 
 if __name__ == "__main__":

@@ -1,56 +1,126 @@
 # main_window.py
 import tkinter as tk
-from tkinter import messagebox
 from models.navigation import Navigation
 from models.Setting import Setting
-from views.right_panel import RightPanel  # Import the new RightPanel
-from utils.debug import print_r
+from views.right_panel import RightPanel
+
 
 class MainWindow:
     def __init__(self):
-            self.root = tk.Tk()
-            self.root.title("LandOwner - Main Window")
+        self.root = tk.Tk()
+        self.root.title("LandOwner - Main Window")
 
-            WindowSize = Setting.index(filters={"setting_name": "window_size"})
+        WindowSize = Setting.index(filters={"setting_name": "window_size"})
+        self.root.geometry(WindowSize[0].setting_value if WindowSize else "800x600")
 
-            if WindowSize:
-                self.root.geometry(WindowSize[0].setting_value)
-            else:
-                self.root.geometry("800x600")  # fallback size
+        self.root.grid_rowconfigure(0, weight=1)
+        self.root.grid_columnconfigure(0, weight=1)
+        self.root.grid_columnconfigure(1, weight=4)
 
-            self.root.grid_rowconfigure(0, weight=1)
-            self.root.grid_columnconfigure(0, weight=1)
-            self.root.grid_columnconfigure(1, weight=4)
+        # Left frame (navigation)
+        self.left_frame = tk.Frame(self.root, bg="#e0e0e0", width=180)
+        self.left_frame.grid(row=0, column=0, sticky="nswe")
+        self.left_frame.grid_propagate(False)  # <- prevent auto resizing
 
-            # Left frame (navigation)
-            left_frame = tk.Frame(self.root, bg="#e0e0e0", width=160)
-            left_frame.grid(row=0, column=0, sticky="nswe")
+        tk.Label(
+            self.left_frame,
+            text="Navigation",
+            bg="#e0e0e0",
+            font=("Arial", 10, "bold"),
+        ).pack(pady=10)
 
-            tk.Label(
-                left_frame, text="Navigation", bg="#e0e0e0", font=("Arial", 10, "bold")
-            ).pack(pady=10)
-            self.load_navigation(left_frame)
+        # Right panel (content)
+        self.right_panel = RightPanel(self.root, width=640)
+        self.right_panel.grid(row=0, column=1, sticky="nswe")
 
-            # Right frame (content)
-            self.right_panel = RightPanel(self.root, width=640)
-            self.right_panel.grid(row=0, column=1, sticky="nswe")
+        # State
+        self.child_frames = {}       # parent_id -> Frame
+        self.expanded_parents = {}   # parent_id -> bool
 
-            self.root.mainloop()
-            
-    def load_navigation(self, parent_frame):
+        self.load_navigation()
+
+        self.root.mainloop()
+
+    # --------------------------------------------------
+    # Navigation Loader
+    # --------------------------------------------------
+    def load_navigation(self):
         menu_items = Navigation.index()
-        
-        for item in menu_items:
-            
-            btn = tk.Button(
-                parent_frame,
-                text=item.menu_name,
-                width=20,
-                command=lambda name=item.navigation,
-                ctrl=item.controller, navigation_name=item.menu_name: self.on_menu_click(name, ctrl, navigation_name),
-            )
-            btn.pack(pady=5)
 
-    def on_menu_click(self, name, controller_name, navigation_name):
-        # Instead of messagebox, update the right panel
-        self.right_panel.render_content(name, controller_name, navigation_name)
+        # Group child menus by parent_id
+        children_map = {}
+        for item in menu_items:
+            if item.parent_id:
+                children_map.setdefault(item.parent_id, []).append(item)
+
+        for item in menu_items:
+            if item.navigation_type == "menu":
+                self.render_menu(item)
+
+            elif item.navigation_type == "parent_menu":
+                self.render_parent_menu(item, children_map.get(item.id, []))
+
+    # --------------------------------------------------
+    # Renderers
+    # --------------------------------------------------
+    def render_menu(self, item):
+        btn = tk.Button(
+            self.left_frame,
+            text=item.menu_name,
+            width=22,
+            anchor="w",
+            command=lambda i=item: self.on_menu_click(i.navigation, i.controller, i.menu_name),
+        )
+        btn.pack(pady=2, padx=5)
+
+    def render_parent_menu(self, parent, children):
+        # Parent button
+        btn = tk.Button(
+            self.left_frame,
+            text=f"▶ {parent.menu_name}",
+            width=22,
+            anchor="w",
+            command=lambda p=parent: self.toggle_children(p.id),
+        )
+        btn.pack(pady=2, padx=5)
+
+        # Child container (packed AFTER parent, hidden by default)
+        child_frame = tk.Frame(self.left_frame, bg="#d0d0d0")
+        child_frame._pack_after = btn  # store reference
+        child_frame.pack_forget()
+
+        self.child_frames[parent.id] = child_frame
+        self.expanded_parents[parent.id] = False
+
+        for child in children:
+            child_btn = tk.Button(
+                child_frame,
+                text=f"   • {child.menu_name}",
+                anchor="w",
+                width=18,
+                command=lambda c=child: self.on_menu_click(c.navigation, c.controller, c.menu_name),
+            )
+            child_btn.pack(pady=1, padx=16)
+
+    # --------------------------------------------------
+    # Accordion Toggle
+    # --------------------------------------------------
+    def toggle_children(self, parent_id):
+        frame = self.child_frames.get(parent_id)
+        expanded = self.expanded_parents.get(parent_id, False)
+
+        if not frame:
+            return
+
+        if expanded:
+            frame.pack_forget()
+        else:
+            frame.pack(after=frame._pack_after, fill="x")
+
+        self.expanded_parents[parent_id] = not expanded
+
+    # --------------------------------------------------
+    # Click Handler
+    # --------------------------------------------------
+    def on_menu_click(self, navigation, controller_name, navigation_name):
+        self.right_panel.render_content(navigation, controller_name, navigation_name)

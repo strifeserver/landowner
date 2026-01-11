@@ -12,10 +12,16 @@ def migrate():
     settings_data = [
         {
             "id": 1,
+            "setting_name": "App Name",
+            "setting_value": "LandOwner",
+            "setting_options": "",
+        },
+        {
+            "id": 2,
             "setting_name": "window_size",
             "setting_value": "1024x768",
             "setting_options": "800x600, 1024x768, 1280x800, 1366x768, 1920x1080",
-        }
+        },
     ]
 
     for setting in settings_data:

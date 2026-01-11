@@ -1,36 +1,19 @@
 import importlib
 
-def get_controller(nav_name, ctrl_name):
+def get_controller(ctrl_name):
     """
-    Dynamically import a controller class, handling snake_case or PascalCase filenames and class names.
-
-    ```
-    nav_name: name used for the file (e.g., 'settings')
-    ctrl_name: class name (e.g., 'SettingsController')
+    Dynamically import a controller class where:
+    - File name == Class name (PascalCase)
+    - Example: UsersController.py -> class UsersController
     """
-    # Possible module names
-    module_variants = [f"{nav_name}_controller", f"{nav_name.capitalize()}Controller"]
+    try:
+        module = importlib.import_module(f"controllers.{ctrl_name}")
+    except ModuleNotFoundError as e:
+        raise ImportError(f"Controller module '{ctrl_name}.py' not found.") from e
 
-    for module_name in module_variants:
-        try:
-            module = importlib.import_module(f"controllers.{module_name}")
-            
-            # Possible class names
-            class_variants = [ctrl_name, ''.join(word.capitalize() for word in ctrl_name.split('_'))]
-            
-            for cls_name in class_variants:
-                if hasattr(module, cls_name):
-                    return getattr(module, cls_name)
-        except ModuleNotFoundError:
-            continue
-
-    raise ImportError(f"Controller '{ctrl_name}' not found for nav '{nav_name}'.")
-   
-
-    # Usage in any other file:
-
-    # from helpers import get_controller
-
-    # controller_class = get_controller('settings', 'SettingsController')
-
-    # controller_instance = controller_class()
+    try:
+        return getattr(module, ctrl_name)
+    except AttributeError as e:
+        raise ImportError(
+            f"Class '{ctrl_name}' not found in '{ctrl_name}.py'."
+        ) from e
