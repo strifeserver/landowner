@@ -29,9 +29,18 @@ class LoginView:
         username = self.username_entry.get()
         password = self.password_entry.get()
 
-        if self.controller.login(username, password):
-            messagebox.showinfo("Success", "Login successful!")
-            self.root.destroy()
-            MainWindow()  # You might want to pass the controller here if needed
-        else:
-            messagebox.showerror("Error", "Invalid credentials.")
+        try:
+            user = self.controller.login(username, password)
+            
+            if user:
+                from utils.session import Session
+                Session.set_user(user)
+                
+                messagebox.showinfo("Success", f"Welcome, {user.username}!")
+                self.root.destroy()
+                MainWindow()  # You might want to pass the controller here if needed
+                
+        except ValueError as e:
+             messagebox.showerror("Login Failed", str(e))
+        except Exception as e:
+             messagebox.showerror("Error", f"An unexpected error occurred: {e}")

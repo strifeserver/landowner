@@ -49,7 +49,7 @@ def migrate():
         cursor.execute("""
             INSERT INTO access_levels (
                 id, access_level_name, access_level_code,
-                view, "add", "edit", "delete", "export", "import",
+                "view", "add", "edit", "delete", "export", "import",
                 created_at, updated_at
             ) VALUES (
                 :id, :access_level_name, :access_level_code,

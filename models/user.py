@@ -34,12 +34,15 @@ class User(BaseModel):
             "capitalize1st": True,
         },
         "is_locked": {
-            "alias": "Locked",
+            "alias": "Is Locked",
             "order": 7,
-            "options": [True, False],
+            "options": [
+                {"label": "True", "value": 1},
+                {"label": "False", "value": 0}
+            ],
             "subtitute_table_values": [
-                {"label": "Enabled", "value": True},
-                {"label": "Disabled", "value": False},
+                {"label": "True", "value": 1},
+                {"label": "False", "value": 0},
             ],
         },
         "temporary_password": {"alias": "Temporary Password", "is_hidden": True},
@@ -190,6 +193,30 @@ class User(BaseModel):
             table_alias="u",   # ✅ important
             debug=debug,
         )
+
+    @classmethod
+    def get_next_custom_id(cls):
+        """
+        Auto-generates the next customId (Employee ID) by incrementing the current max.
+        Example: 000021 -> 000022
+        """
+        import sqlite3
+        try:
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute(f"SELECT customId FROM {cls.table_name} ORDER BY CAST(customId AS INTEGER) DESC LIMIT 1")
+            row = cursor.fetchone()
+            conn.close()
+
+            if row and row[0]:
+                next_id = int(row[0]) + 1
+            else:
+                next_id = 1
+                
+            return f"{next_id:06}"
+        except Exception as e:
+            print(f"Error generating customId: {e}")
+            return "000001"
 
     # -----------------------
     # Dynamic select options

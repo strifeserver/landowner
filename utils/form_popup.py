@@ -120,6 +120,8 @@ def create_dropdown_field(parent, options, current_value=None, editable=True):
     return var, label_to_value
 
 
+from utils.Alert import Alert
+
 def handle_submit(entries, on_submit, popup):
     """
     Collects all values from the form and calls the on_submit callback.
@@ -134,6 +136,12 @@ def handle_submit(entries, on_submit, popup):
             data[field] = None
 
     if callable(on_submit):
-        on_submit(data)
-
-    popup.destroy()
+        response = on_submit(data)
+        
+        if isinstance(response, dict):
+            # Form stays open if there are errors (handled by caller's Alert)
+            if response.get("success"):
+                popup.destroy()
+        else:
+            # Fallback for old controllers
+            popup.destroy()

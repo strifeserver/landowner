@@ -29,6 +29,10 @@ class MainWindow:
             font=("Arial", 10, "bold"),
         ).pack(pady=10)
 
+        # Container for dynamic menu items
+        self.menu_container = tk.Frame(self.left_frame, bg="#e0e0e0")
+        self.menu_container.pack(fill="both", expand=True)
+
         # Right panel (content)
         self.right_panel = RightPanel(self.root, width=640)
         self.right_panel.grid(row=0, column=1, sticky="nswe")
@@ -37,6 +41,10 @@ class MainWindow:
         self.child_frames = {}       # parent_id -> Frame
         self.expanded_parents = {}   # parent_id -> bool
 
+        # Subscribe to session permission changes (to auto-refresh menu)
+        from utils.session import Session
+        Session.subscribe(self.load_navigation)
+
         self.load_navigation()
 
         self.root.mainloop()
@@ -44,8 +52,33 @@ class MainWindow:
     # --------------------------------------------------
     # Navigation Loader
     # --------------------------------------------------
+    # --------------------------------------------------
+    # Navigation Loader
+    # --------------------------------------------------
     def load_navigation(self):
-        menu_items = Navigation.index()
+        from utils.session import Session
+        from models.access_level import AccessLevel
+
+        all_menu_items = Navigation.index()
+        menu_items = []
+
+        # Permission Filter
+        user = Session.get_user()
+        if user:
+            # Fetch AccessLevel object
+            access_level = AccessLevel.edit(user.access_level)
+            if access_level:
+                allowed_ids = access_level.get_permissions_list('view')
+                # Filter items: keep if item.id is in allowed_ids
+                menu_items = [item for item in all_menu_items if item.id in allowed_ids]
+        
+        # If no user or no access level, menu_items remains [] (or maybe we allow public items?)
+        # For this system, assume strictly authenticated.
+
+        
+        # Clear existing menu items
+        for widget in self.menu_container.winfo_children():
+            widget.destroy()
 
         # Group child menus by parent_id
         children_map = {}
@@ -65,7 +98,7 @@ class MainWindow:
     # --------------------------------------------------
     def render_menu(self, item):
         btn = tk.Button(
-            self.left_frame,
+            self.menu_container,
             text=item.menu_name,
             width=22,
             anchor="w",
@@ -76,7 +109,7 @@ class MainWindow:
     def render_parent_menu(self, parent, children):
         # Parent button
         btn = tk.Button(
-            self.left_frame,
+            self.menu_container,
             text=f"▶ {parent.menu_name}",
             width=22,
             anchor="w",
@@ -85,7 +118,7 @@ class MainWindow:
         btn.pack(pady=2, padx=5)
 
         # Child container (packed AFTER parent, hidden by default)
-        child_frame = tk.Frame(self.left_frame, bg="#d0d0d0")
+        child_frame = tk.Frame(self.menu_container, bg="#d0d0d0")
         child_frame._pack_after = btn  # store reference
         child_frame.pack_forget()
 

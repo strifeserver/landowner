@@ -1,7 +1,5 @@
-# controllers/users_controller.py
+# controllers/AccessLevelController.py
 from models.access_level import AccessLevel
-# from ..requests.UserRequest import UserRequest
-from request_objects.UserRequest import UserRequest
 from services.AccessLevelService import AccessLevelService
 from utils.debug import print_r
 
@@ -24,28 +22,52 @@ class AccessLevelController:
 
     @staticmethod
     def create():
-        field_definitions = AccessLevel.get_dynamic_field_definitions()
-        return field_definitions
+        from views.access_level.access_level_form import AccessLevelForm
+        return {
+            "view_type": "custom",
+            "view_class": AccessLevelForm
+        }
 
     @staticmethod
     def store(data):
         service = AccessLevelService()        
-        return service.store(data)
+        result = service.store(data)
+        
+        if result:
+             # Refresh permissions if successful
+            from utils.session import Session
+            Session.notify_permission_change()
+            return {"success": True, "message": "Access Level created successfully"}
+            
+        return {"success": False, "message": "Failed to create access level"}
 
     @staticmethod
-    def edit(id):
-        service = AccessLevelService()     
-        result = service.edit(id)
-        return result
+    def edit(data):
+        from views.access_level.access_level_form import AccessLevelForm
+        # 'data' here is the row object (which has the id)
+        return {
+            "view_type": "custom",
+            "view_class": AccessLevelForm,
+            "initial_data": data
+        }
 
     @staticmethod
     def update(id, data):
         service = AccessLevelService()   
-        print("Controller Update")
-        return service.update(id, data)
+        print("AccessLevel Controller Update")
+        result = service.update(id, data)
+        
+        if result:
+             # Refresh permissions if successful
+            from utils.session import Session
+            Session.notify_permission_change()
+            return {"success": True, "message": "Access Level updated successfully"}
+            
+        return {"success": False, "message": "Failed to update access level"}
 
     @staticmethod
     def destroy(id):
         service = AccessLevelService()   
-        print("Controller Delete")
-        return service.delete(id)
+        print("AccessLevel Controller Delete")
+        result = service.delete(id)
+        return {"success": True, "message": "Access Level deleted successfully"} if result else {"success": False, "message": "Failed to delete access level"}

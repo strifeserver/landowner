@@ -26,7 +26,12 @@ class AccessLevel(BaseModel):
             "order": 2,
             "editable": True,
         },
-
+        "view": {"alias": "View", "is_hidden": True, "order": 3, "editable": False},
+        "add": {"alias": "Add", "is_hidden": True, "order": 4, "editable": False},
+        "edit": {"alias": "Edit", "is_hidden": True, "order": 5, "editable": False},
+        "delete": {"alias": "Delete", "is_hidden": True, "order": 6, "editable": False},
+        "export": {"alias": "Export", "is_hidden": True, "order": 7, "editable": False},
+        "import": {"alias": "Import", "is_hidden": True, "order": 8, "editable": False},
     }
 
     # Only DB columns
@@ -34,11 +39,40 @@ class AccessLevel(BaseModel):
         "id",
         "access_level_name",
         "access_level_code",
+        "view",
+        "add",
+        "edit",
+        "delete",
+        "export",
+        "import",
     ]
 
     def __init__(self, **kwargs):
         for field in self.fields:
-            setattr(self, field, kwargs.get(field))
+            setattr(self, field, kwargs.get(field, ""))
+
+    def get_permissions_list(self, permission_type):
+        """Returns a list of integer IDs from the CSV string of the given permission type."""
+        if permission_type not in self.fields:
+            return []
+        
+        val = getattr(self, permission_type, "")
+        if not val:
+            return []
+            
+        # Handle cases where val might be an int or none (though init sets it to "")
+        if isinstance(val, int):
+            return [val]
+            
+        return [int(x.strip()) for x in str(val).split(",") if x.strip().isdigit()]
+
+    def set_permissions_list(self, permission_type, id_list):
+        """Sets the CSV string for a permission type from a list of integer IDs."""
+        if permission_type not in self.fields:
+            return
+            
+        csv_str = ",".join(str(i) for i in id_list)
+        setattr(self, permission_type, csv_str)
 
 
     @classmethod
@@ -63,7 +97,7 @@ class AccessLevel(BaseModel):
         # Default SELECT query if no custom_query
         if not custom_query:
             prefix = f"{table_alias}." if table_alias else ""
-            fields_to_select = [f"{prefix}{f}" for f in cls.fields]
+            fields_to_select = [f'{prefix}"{f}"' for f in cls.fields]
             select_clause = ", ".join(fields_to_select)
             custom_query = f"SELECT {select_clause} FROM {cls.table_name} {table_alias or ''}"
 
@@ -126,7 +160,8 @@ class AccessLevel(BaseModel):
         if not custom_query:
             final_fields = cls.fields
             table_alias = table_alias or cls.table_name
-            custom_query = f"SELECT {', '.join(cls.fields)} FROM {cls.table_name}"
+            quoted_fields = [f'"{f}"' for f in cls.fields]
+            custom_query = f"SELECT {', '.join(quoted_fields)} FROM {cls.table_name}"
         else:
             final_fields = custom_fields or cls.fields
             table_alias = table_alias or "t"
@@ -146,7 +181,7 @@ class AccessLevel(BaseModel):
 
 
     @classmethod
-    def update(cls, id, data):
+    def update(cls, id, **kwargs):
         return super().update_sqlite(DB_PATH, cls.table_name, id, **kwargs)
 
     @classmethod

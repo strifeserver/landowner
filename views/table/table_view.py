@@ -7,7 +7,7 @@ from views.table.table_buttons import on_add, on_edit, on_delete
 
 
 class TableView(tk.Frame):
-    def __init__(self, parent, data, controller_callback=None, title="Table View", columns=None, column_labels=None, *args, **kwargs,):
+    def __init__(self, parent, data, controller_callback=None, title="Table View", columns=None, column_labels=None, nav_id=None, *args, **kwargs,):
         super().__init__(parent, *args, **kwargs)
         self.controller_callback = controller_callback
         self.original_data = data.copy()
@@ -17,6 +17,7 @@ class TableView(tk.Frame):
         self.items_per_page = 10
         self.total_rows = 0
         self.total_pages = 1
+        self.nav_id = nav_id # Store Navigation ID
         
         if columns is None:
             if (
@@ -57,6 +58,41 @@ class TableView(tk.Frame):
         self.create_search_and_filter(table_container)
         self.create_treeview_table(table_container)
         self.render_rows()
+
+    def get_permissions(self):
+        """
+        Returns a dict { 'add': bool, 'edit': bool, 'delete': bool }
+        based on current user's Access Level and this Table's nav_id.
+        """
+        from utils.session import Session
+        from models.access_level import AccessLevel
+        
+        user = Session.get_user()
+        if not user:
+            return {'add': False, 'edit': False, 'delete': False}
+        
+        # If nav_id is missing (e.g. Dashboard), assume read-only or full access?
+        # Let's assume read-only for safety if matched content, or maybe True? 
+        # Usually dashboard doesn't have add/edit table.
+        if not self.nav_id:
+             return {'add': True, 'edit': True, 'delete': True}
+
+        try:
+            # Fetch AccessLevel for the user
+            # user.access_level is the FK ID
+            al = AccessLevel.edit(user.access_level)
+            if not al:
+                return {'add': False, 'edit': False, 'delete': False}
+                
+            perms = {
+                'add': self.nav_id in al.get_permissions_list('add'),
+                'edit': self.nav_id in al.get_permissions_list('edit'),
+                'delete': self.nav_id in al.get_permissions_list('delete')
+            }
+            return perms
+        except Exception as e:
+            print(f"Permission check error: {e}")
+            return {'add': False, 'edit': False, 'delete': False}
 
     def create_treeview_table(self, parent):
         #Table style Config
@@ -137,27 +173,35 @@ class TableView(tk.Frame):
         title_frame.pack(fill=tk.X, pady=(5, 2))
         tk.Label(title_frame, text=title, font=("Arial", 12, "bold")).pack(side=tk.LEFT, padx=10)
 
-        tk.Button(title_frame, text="Add", command=lambda: on_add(self), width=10).pack(side=tk.RIGHT, padx=10)
+        # Check Permissions
+        perms = self.get_permissions()
+
+        if perms['add']:
+            tk.Button(title_frame, text="Add", command=lambda: on_add(self), width=10).pack(side=tk.RIGHT, padx=10)
         
+        if perms['edit']:
+            self.edit_btn = tk.Button(
+                title_frame,
+                text="Edit",
+                state=tk.DISABLED,
+                command=lambda: on_edit(self),
+                width=10,
+            )
+            self.edit_btn.pack(side=tk.RIGHT, padx=10)
+        else:
+            self.edit_btn = None # Flag that it doesn't exist
         
-        self.edit_btn = tk.Button(
-            title_frame,
-            text="Edit",
-            state=tk.DISABLED,
-            command=lambda: on_edit(self),
-            width=10,
-        )
-        self.edit_btn.pack(side=tk.RIGHT, padx=10)
-        
-        
-        self.delete_btn = tk.Button(
-            title_frame,
-            text="Delete",
-            state=tk.DISABLED,
-            command=lambda: on_delete(self),
-            width=10,
-        )
-        self.delete_btn.pack(side=tk.RIGHT, padx=10)
+        if perms['delete']:
+            self.delete_btn = tk.Button(
+                title_frame,
+                text="Delete",
+                state=tk.DISABLED,
+                command=lambda: on_delete(self),
+                width=10,
+            )
+            self.delete_btn.pack(side=tk.RIGHT, padx=10)
+        else:
+            self.delete_btn = None
 
     def create_search_and_filter(self, parent):
         search_frame = tk.Frame(parent)
@@ -292,8 +336,11 @@ class TableView(tk.Frame):
 
     def on_tree_select(self, event):
         selected = self.tree.selection()
-        self.edit_btn.config(state=tk.NORMAL if selected else tk.DISABLED)
-        self.delete_btn.config(state=tk.NORMAL if selected else tk.DISABLED)
+        if hasattr(self, 'edit_btn') and self.edit_btn:
+            self.edit_btn.config(state=tk.NORMAL if selected else tk.DISABLED)
+        
+        if hasattr(self, 'delete_btn') and self.delete_btn:
+            self.delete_btn.config(state=tk.NORMAL if selected else tk.DISABLED)
 
     def filter_all(self):
         create_filter_window(self)

@@ -74,5 +74,22 @@ class Setting(BaseModel):
         )
 
     @classmethod
+    def edit(cls, id):
+        return super().edit_sqlite(DB_PATH, cls.table_name, cls.fields, row_id=id)
+
+    @classmethod
     def store(cls, **kwargs):
-        return super().store_sqlite(cls.db_path, cls.table_name, **kwargs)
+        return super().store_sqlite(DB_PATH, cls.table_name, **kwargs)
+
+    @classmethod
+    def update(cls, id, **kwargs):
+        return super().update_sqlite(DB_PATH, cls.table_name, id, **kwargs)
+
+    @classmethod
+    def destroy(cls, id):
+        return super().destroy_sqlite(DB_PATH, cls.table_name, id)
+
+    @classmethod
+    def get_dynamic_field_definitions(cls):
+        """Standard method for returning field metadata."""
+        return cls.field_definitions

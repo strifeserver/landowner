@@ -30,22 +30,20 @@ class RuleValidator:
                 try:
                     # Parse "unique:user,username"
                     _, params = rule.split(':')
-                    model_name, field = params.split(',')
+                    model_parts = params.split(',')
+                    model_name = model_parts[0]
+                    field = model_parts[1]
                 
-
                     model_module = importlib.import_module(f"models.{model_name}")
-                    model_class = getattr(model_module, model_name.capitalize())
+                    # PascalCase for class name (e.g. access_level -> AccessLevel)
+                    class_name = "".join(part.capitalize() for part in model_name.split("_"))
+                    model_class = getattr(model_module, class_name)
 
-                    
                     # Use model's index method with filters
                     existing = model_class.index(filters={field: value})
-                    # print('Existing records found for uniqueness check:')
-                    # for record in existing:
-                    #     print(f"{field} in existing record: {getattr(record, field, None)}")
 
                     if len(existing) > 0:
                         errors.append(f"{name} must be unique.")
-                        
                         
                 except Exception as e:
                     errors.append(f"{name} uniqueness check failed: {str(e)}")
@@ -59,11 +57,13 @@ class RuleValidator:
         errors = {}
 
         for field, field_rules in rules.items():
-            value = data.get(field)
-            validated_data[field] = value
-            field_errors = RuleValidator.validate_field(field, value, field_rules)
+            # Only process if field is in data OR if it's required (to catch missing required fields)
+            if field in data or 'required' in field_rules:
+                value = data.get(field)
+                validated_data[field] = value
+                field_errors = RuleValidator.validate_field(field, value, field_rules)
 
-            if field_errors:
-                errors[field] = field_errors
+                if field_errors:
+                    errors[field] = field_errors
 
         return validated_data, errors

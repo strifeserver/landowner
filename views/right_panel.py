@@ -71,6 +71,17 @@ class RightPanel(tk.Frame):
                 # Convert objects → dicts
                 data = [obj.__dict__ for obj in data_list]
 
+                # Fetch Navigation ID to pass to TableView for permissions
+                from models.navigation import Navigation
+                nav_item = None
+                try:
+                    # navigation column matches nav_name passed from main_window
+                    navs = Navigation.index(filters={"navigation": nav_name})
+                    if navs:
+                        nav_item = navs[0]
+                except Exception as e:
+                    print(f"Error fetching navigation for {nav_name}: {e}")
+
                 # Create Table
                 table = TableView(
                     self,
@@ -79,6 +90,7 @@ class RightPanel(tk.Frame):
                     data=data,
                     controller_callback=None,  # Added later
                     title=navigation_name,
+                    nav_id=nav_item.id if nav_item else None # Pass ID
                 )
                 table.pack(fill=tk.BOTH, expand=True)
                 table.controller_class = controller_class

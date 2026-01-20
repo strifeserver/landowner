@@ -1,7 +1,5 @@
-# controllers/users_controller.py
 from models.user import User
-# from ..requests.UserRequest import UserRequest
-from request_objects.UserRequest import UserRequest
+from app_requests.UsersRequest import UsersRequest
 from services.UsersService import UsersService
 from utils.debug import print_r
 
@@ -24,28 +22,57 @@ class UsersController:
 
     @staticmethod
     def create():
-        field_definitions = User.get_dynamic_field_definitions()
-        return field_definitions
+        from models.user import User
+        from views.users.user_form import UserForm
+        
+        # Still generate auto-ID to pass to custom form
+        next_id = User.get_next_custom_id()
+
+        return {
+            "view_type": "custom",
+            "view_class": UserForm,
+            "initial_data": {"customId": next_id}
+        }
 
     @staticmethod
     def store(data):
+        request = UsersRequest(data, action="store")
+        # Ensure we validate incoming data from custom form correctly
+        validation = request.validate()
+
+        if validation is not True:
+            return {"success": False, "errors": validation}
+
         service = UsersService()        
-        return service.store_user(data)
+        result = service.store(request.get_validated_data())
+        return {"success": True, "message": "User created successfully"} if result else {"success": False, "message": "Failed to create user"}
 
     @staticmethod
-    def edit(id):
-        service = UsersService()     
-        result = service.edit(id)
-        return result
+    def edit(data):
+        from views.users.user_form import UserForm
+        # 'data' here is the User object passed from the table selection
+        return {
+            "view_type": "custom",
+            "view_class": UserForm,
+            "initial_data": data
+        }
 
     @staticmethod
     def update(id, data):
+        request = UsersRequest(data, action='update')
+        validation = request.validate()
+
+        if validation is not True:
+            return {"success": False, "errors": validation}
+
         service = UsersService()   
         print("Users Controller Update")
-        return service.update_user(id, data)
+        result = service.update(id, request.get_validated_data())
+        return {"success": True, "message": "User updated successfully"} if result else {"success": False, "message": "Failed to update user"}
 
     @staticmethod
     def destroy(id):
         service = UsersService()   
         print("Users Controller Delete")
-        return service.delete_user(id)
+        result = service.delete(id)
+        return {"success": True, "message": "User deleted successfully"} if result else {"success": False, "message": "Failed to delete user"}

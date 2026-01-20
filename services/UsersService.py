@@ -16,6 +16,10 @@ class UsersService(BaseService):
 # service.fetch_one(user_id)
 
 # service.store(data)
+def store(self, data):
+    print('STORE SERVICE')
+    print(data)
+
 
 # service.update(user_id, data)
 

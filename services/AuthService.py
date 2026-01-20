@@ -1,14 +1,28 @@
 # services/auth_service.py
-import json
+from models.user import User
 
 class AuthService:
-    def __init__(self, user_file="data/users.json"):
-        self.user_file = user_file
+    def __init__(self):
+        pass
 
     def authenticate(self, username, password):
-        with open(self.user_file, "r") as f:
-            users = json.load(f)
-        for user in users:
-            if user["username"] == username and user["password"] == password:
-                return True
-        return False
+        # Fetch user by username (and simple password check for now)
+        # Note: In production use hashed passwords.
+        users = User.index(filters={"username": username})
+        
+        if not users:
+            raise ValueError("Invalid credentials")
+            
+        user = users[0]
+        
+        # Verify password (plaintext matching seed data)
+        if user.password == password:
+            if getattr(user, "is_locked", False):
+                # Check for SQLite boolean (0/1) or Python boolean
+                is_locked = user.is_locked
+                if str(is_locked).lower() in ('1', 'true'):
+                     raise ValueError("Account is locked")
+            
+            return user
+            
+        raise ValueError("Invalid credentials")

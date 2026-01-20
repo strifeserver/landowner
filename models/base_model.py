@@ -56,7 +56,12 @@ class BaseModel:
         cursor = conn.cursor()
 
         final_fields = custom_fields or fields
-        base_query = custom_query or f"SELECT {', '.join(fields)} FROM {table_name}"
+        
+        if custom_query:
+            base_query = custom_query
+        else:
+            quoted_fields = [f'"{f}"' for f in fields]
+            base_query = f"SELECT {', '.join(quoted_fields)} FROM {table_name}"
 
         # Use alias if provided, else default to table_name
         alias = table_alias or table_name
@@ -196,8 +201,17 @@ class BaseModel:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        final_fields = custom_fields or fields
-        base_query = custom_query or f"SELECT {', '.join(fields)} FROM {table_name}"
+        if custom_fields:
+            final_fields = custom_fields 
+        else:
+             final_fields = fields
+
+        if custom_query:
+            base_query = custom_query
+        else:
+            # Quote fields to avoid reserved keyword issues (e.g. "add")
+            quoted_fields = [f'"{f}"' for f in fields]
+            base_query = f"SELECT {', '.join(quoted_fields)} FROM {table_name}"
         alias = table_alias or table_name
 
         where_clauses = []
@@ -253,7 +267,7 @@ class BaseModel:
         kwargs["created_at"] = now
         kwargs["updated_at"] = now
 
-        fields = ", ".join(kwargs.keys())
+        fields = ", ".join(f'"{key}"' for key in kwargs.keys())
         placeholders = ", ".join("?" for _ in kwargs)
         values = list(kwargs.values())
 
@@ -273,7 +287,7 @@ class BaseModel:
         cursor = conn.cursor()
 
         kwargs["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        set_clause = ", ".join(f"{key}=?" for key in kwargs.keys())
+        set_clause = ", ".join(f'"{key}"=?' for key in kwargs.keys())
         values = list(kwargs.values())
         values.append(row_id)
 
