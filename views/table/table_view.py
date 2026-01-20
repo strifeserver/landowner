@@ -1,6 +1,6 @@
 import tkinter as tk
-from tkinter import ttk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
+from datetime import datetime, timedelta
 from views.table.table_filters import create_filter_window, apply_advanced_filters
 from views.table.treeview_styles import apply_treeview_style
 from views.table.table_buttons import on_add, on_edit, on_delete
@@ -354,10 +354,32 @@ class TableView(tk.Frame):
         
 
     def apply_advanced_filters(self):
-        
         self.advance_filter = apply_advanced_filters(self)
         self.current_page = 1
+        
+        if not self.controller_callback:
+            self._apply_local_filters()
+                    
         self.render_rows()
+
+    def _apply_local_filters(self):
+        """Helper to filter data locally when no controller is available."""
+        self.filtered_data = []
+        for row in self.original_data:
+            match = True
+            for col, val in self.advance_filter.items():
+                if col in ["created_at_from", "created_at_to", "updated_at_from", "updated_at_to"]:
+                    continue
+                
+                # Robustly get value whether row is a dict or object
+                row_val = getattr(row, col, "") if not isinstance(row, dict) else row.get(col, "")
+                if str(row_val).lower().find(str(val)) == -1:
+                    match = False
+                    break
+            
+            # Additional date range logic if needed could go here
+            if match:
+                self.filtered_data.append(row)
 
     def trigger_controller_method(self, method_name, id=None, data=None):
         if not hasattr(self, "controller_class"):

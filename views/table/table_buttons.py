@@ -31,9 +31,7 @@ def on_add(table_view: "TableView"):
         if isinstance(response, dict):
             if response.get("success"):
                 Alert.success(response.get("message"))
-                # Refresh table
-                table_view.original_data = table_view.controller_callback() or []
-                table_view.filtered_data = table_view.original_data.copy()
+                # Re-fetch and re-render data from controller
                 table_view.render_rows()
             elif "errors" in response:
                 Alert.error(response["errors"], title="Validation Error")
@@ -102,32 +100,36 @@ def on_edit(table_view: "TableView"):
         safe_launch(open_form_popup, "Update Data", field_definitions, on_submit=on_submit, initial_data=initial_data)
 
 
-def on_delete(table_view):
+def on_delete(table_view: "TableView"):
     selected = table_view.tree.selection()
     if not selected:
         return
-    index = int(selected[0])
+    
+    # Correctly get the numerical index from the Treeview ID
+    item_id = selected[0]
+    index = table_view.tree.index(item_id)
     row = table_view.filtered_data[index]
-    row_id = row.get("id", None)
+    
+    # Robustly get the ID whether row is a dict or object
+    row_id = getattr(row, "id", None) if not isinstance(row, dict) else row.get("id")
+    
     if row_id is None:
-        from tkinter import messagebox
-
-        messagebox.showerror("Delete Error", "No 'id' field found in the selected row.")
+        Alert.error("No 'id' field found in the selected row.", title="Delete Error")
         return
-    from tkinter import messagebox
-
-    if messagebox.askyesno("Confirm Delete", f"Delete item with ID: {row_id}?"):
+    def execute_delete():
         response = table_view.trigger_controller_method("destroy", id=row_id)
         
         if isinstance(response, dict) and response.get("success"):
             Alert.success(response.get("message", "Deleted successfully"))
-            table_view.original_data = [
-                r for r in table_view.original_data if r.get("id") != row_id
-            ]
-            table_view.filtered_data = [
-                r for r in table_view.filtered_data if r.get("id") != row_id
-            ]
+            # Reset to page 1 and refresh
+            table_view.current_page = 1
             table_view.render_rows()
         else:
             msg = response.get("message", "Delete failed") if isinstance(response, dict) else "Delete failed"
             Alert.error(msg)
+
+    Alert.confirm(
+        f"Delete item with ID: {row_id}?",
+        title="Confirm Delete",
+        on_confirm=execute_delete
+    )
