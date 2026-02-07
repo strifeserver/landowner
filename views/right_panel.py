@@ -36,8 +36,14 @@ class RightPanel(tk.Frame):
         self.create_top_right_account()
 
         try:
-
             controller_class = get_controller(ctrlName)
+
+            # Check if controller provides a custom view
+            if hasattr(controller_class, "index_view"):
+                view = controller_class.index_view(self)
+                view.pack(fill=tk.BOTH, expand=True)
+                self.create_footer()
+                return
 
             # Fetch initial result (page 1)
             initial_result = controller_class.index(
@@ -221,7 +227,7 @@ class RightPanel(tk.Frame):
         self.prev_btn = tk.Button(
             top_frame,
             text="My Account",
-            command=lambda: print("TEST"),
+            command=lambda: self.render_content("my_account", "MyAccountController", "My Account"),
             font=btn_font,
             padx=15,
             pady=5

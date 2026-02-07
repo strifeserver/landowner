@@ -18,9 +18,11 @@ class User(BaseModel):
     field_definitions = {
         "id": {"alias": "ID", "is_hidden": False, "order": 0, "editable": False},
         "customId": {"alias": "Employee ID", "order": 1, "editable": True},
-        "username": {"alias": "Username", "order": 2, "editable": True},
+        "name": {"alias": "Full Name", "order": 2, "editable": True},
+        "username": {"alias": "Username", "order": 3, "editable": True},
         "password": {"alias": "Password", "is_hidden": True},
         "email": {"alias": "Email", "order": 4, "editable": True},
+        "display_photo": {"alias": "Display Photo", "order": 5, "editable": True},
         "access_level": {
             "alias": "Access Level",
             "is_hidden": True,
@@ -61,9 +63,11 @@ class User(BaseModel):
     fields = [
         "id",
         "customId",
+        "name",
         "username",
         "password",
         "email",
+        "display_photo",
         "access_level",
         "account_status",
         "is_locked",

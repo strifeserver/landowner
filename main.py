@@ -4,6 +4,9 @@ import traceback
 from controllers.AuthController import AuthController
 from views.login.login_view import LoginView  # <- updated import
 
+from utils.session import Session
+from views.main_window import MainWindow
+
 # Setup logging
 logging.basicConfig(
     filename='python.log',
@@ -25,6 +28,7 @@ sys.excepthook = handle_exception
 
 if __name__ == "__main__":
     try:
+        # ALWAYS show login view on startup as requested
         LoginView(AuthController)
     except Exception:
         logging.error("Final catch-all for application crash:\n%s", traceback.format_exc())

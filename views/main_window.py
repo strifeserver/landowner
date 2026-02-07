@@ -97,12 +97,12 @@ class MainWindow:
         subheader_setting = Setting.index(filters={"setting_name": "default_current_logged_in_sub_header"})
         image_setting = Setting.index(filters={"setting_name": "default_current_logged_in_image"})
 
-        display_header = header_setting[0].setting_value if header_setting else "LandOwner"
-        sub_header = subheader_setting[0].setting_value if subheader_setting else "Admin Panel"
+        user = Session.get_user()
+        display_header = user.name if user and user.name else (header_setting[0].setting_value if header_setting else "LandOwner")
+        sub_header = user.access_level_name if user else (subheader_setting[0].setting_value if subheader_setting else "Admin Panel")
         
-        # Strictly use setting value, no hardcoded 'logo.png' fallback logic unless the setting itself is missing
-        # If DB returns nothing, we won't try to load an image.
-        image_filename = image_setting[0].setting_value if image_setting else None
+        # Priority: 1. User display_photo, 2. setting default
+        image_filename = user.display_photo if user and user.display_photo else (image_setting[0].setting_value if image_setting else None)
         
         print(f"DEBUG: Fetched 'default_current_logged_in_image' setting value: '{image_filename}'")
 
@@ -141,7 +141,7 @@ class MainWindow:
             bg="#e0e0e0", 
             fg="black", 
             font=("Arial", 12, "bold"),
-            anchor="w"
+            anchor="center"
         )
         lbl_header.pack(fill="x")
 
@@ -152,7 +152,7 @@ class MainWindow:
             bg="#e0e0e0", 
             fg="#666666", 
             font=("Arial", 9),
-            anchor="w"
+            anchor="center"
         )
         lbl_sub.pack(fill="x")
 

@@ -18,12 +18,36 @@ class LoginView:
         self.password_entry = tk.Entry(self.root, show="*")
         self.password_entry.pack()
 
-        tk.Button(self.root, text="Login", command=self.handle_login).pack(pady=20)
+        button_frame = tk.Frame(self.root)
+        button_frame.pack(pady=20)
+
+        tk.Button(button_frame, text="Login", command=self.handle_login).pack(side=tk.LEFT, padx=10)
+
+        # 🔑 Check for Quick Login (active session)
+        from utils.session import Session
+        if Session.load_session():
+            tk.Button(
+                button_frame, 
+                text="Quick Login", 
+                bg="#e1f5fe", 
+                command=self.handle_quick_login
+            ).pack(side=tk.LEFT, padx=10)
 
         # 🔑 Bind the Enter/Return key to the login handler
         self.root.bind('<Return>', lambda event: self.handle_login())
 
         self.root.mainloop()
+
+    def handle_quick_login(self):
+        """Re-enters the app using existing session."""
+        from utils.session import Session
+        user = Session.get_user()
+        if user:
+            messagebox.showinfo("Quick Login", f"Welcome back, {user.username}!")
+            self.root.destroy()
+            MainWindow()
+        else:
+            messagebox.showerror("Error", "Session expired or invalid.")
 
     def handle_login(self):
         username = self.username_entry.get()
