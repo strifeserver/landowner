@@ -16,7 +16,19 @@ class RightPanel(tk.Frame):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, bg="#ffffff", *args, **kwargs)
         self.pack_propagate(False)
+        self._after_ids = {} # Track timers for cleanup
+        self.bind("<Destroy>", lambda e: self.stop_timers())
         self.render_default()
+
+    def stop_timers(self):
+        """Cancel all pending after() calls."""
+        if hasattr(self, "_after_ids"):
+            for name, after_id in list(self._after_ids.items()):
+                try:
+                    self.after_cancel(after_id)
+                except Exception:
+                    pass
+            self._after_ids.clear()
         
 
     # -------------------------------
@@ -160,6 +172,7 @@ class RightPanel(tk.Frame):
             
             
     def clear(self):
+        self.stop_timers()
         for widget in self.winfo_children():
             widget.destroy()
 
@@ -210,10 +223,17 @@ class RightPanel(tk.Frame):
     def update_memory_usage(self):
         if not self.winfo_exists():
             return
-        process = psutil.Process(os.getpid())
-        mem_mb = process.memory_info().rss / (1024 * 1024)
-        self.memory_label.config(text=f"Memory Usage: {mem_mb:.2f} MB")
-        self.memory_label.after(1000, self.update_memory_usage)  # update again in 1 sec
+        
+        try:
+            process = psutil.Process(os.getpid())
+            mem_mb = process.memory_info().rss / (1024 * 1024)
+            if hasattr(self, 'memory_label') and self.memory_label.winfo_exists():
+                self.memory_label.config(text=f"Memory Usage: {mem_mb:.2f} MB")
+            
+            # Re-schedule and store ID
+            self._after_ids['memory'] = self.after(1000, self.update_memory_usage)
+        except Exception:
+            pass
 
 
     def create_top_right_account(self):
@@ -249,11 +269,17 @@ class RightPanel(tk.Frame):
         def update_datetime():
             if not self.winfo_exists():
                 return
-            now = datetime.now()
-            date_str = now.strftime("%m/%d/%Y")
-            time_str = now.strftime("%I:%M %p")
-            self.datetime_label.config(text=f"{date_str}\n{time_str}")
-            self.datetime_label.after(1000, update_datetime)  # update every second
+            try:
+                now = datetime.now()
+                date_str = now.strftime("%m/%d/%Y")
+                time_str = now.strftime("%I:%M %p")
+                if hasattr(self, 'datetime_label') and self.datetime_label.winfo_exists():
+                    self.datetime_label.config(text=f"{date_str}\n{time_str}")
+                
+                # Re-schedule and store ID
+                self._after_ids['datetime'] = self.after(1000, update_datetime)
+            except Exception:
+                pass
 
         update_datetime()  # start the timer
         

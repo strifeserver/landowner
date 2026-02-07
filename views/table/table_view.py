@@ -256,6 +256,9 @@ class TableView(tk.Frame):
         apply_treeview_style(config)
 
     def render_rows(self):
+        if not self.winfo_exists():
+            return
+
         if self.controller_callback:
 
             window_open = (
@@ -283,7 +286,8 @@ class TableView(tk.Frame):
         self.tree.delete(*self.tree.get_children())
 
         for idx, row in enumerate(self.filtered_data):
-            values = [getattr(row, col, "") for col in self.columns]
+            # Robustly fetch column value whether row is a dict or object
+            values = [row.get(col, "") if isinstance(row, dict) else getattr(row, col, "") for col in self.columns]
             tag = "evenrow" if idx % 2 == 0 else "oddrow"
             self.tree.insert("", tk.END, values=values, tags=(tag,))
 

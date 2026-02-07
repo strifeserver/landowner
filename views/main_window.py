@@ -111,10 +111,18 @@ class MainWindow:
         # Subscribe to session permission changes (to auto-refresh menu)
         from utils.session import Session
         Session.subscribe(self.load_navigation)
-
+        
         self.load_navigation()
+        self.redirect_to_dashboard()
 
         self.root.mainloop()
+
+    def redirect_to_dashboard(self):
+        """Initial redirect to dashboard if it exists and no content is loaded."""
+        all_menu_items = Navigation.index()
+        dashboard_nav = next((i for i in all_menu_items if i.navigation == "dashboard"), None)
+        if dashboard_nav:
+            self.on_menu_click(dashboard_nav.navigation, dashboard_nav.controller, dashboard_nav.menu_name)
 
     # --------------------------------------------------
     # Navigation Loader
@@ -240,10 +248,8 @@ class MainWindow:
             elif item.navigation_type == "menu_header":
                 self.render_menu_header(item)
 
-        # --- Dashboard Landing Page Redirect ------------------------------
-        dashboard_nav = next((i for i in menu_items if i.navigation == "dashboard"), None)
-        if dashboard_nav:
-            self.on_menu_click(dashboard_nav.navigation, dashboard_nav.controller, dashboard_nav.menu_name)
+            elif item.navigation_type == "menu_header":
+                self.render_menu_header(item)
 
     # --------------------------------------------------
     # Renderers

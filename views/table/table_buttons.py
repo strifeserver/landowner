@@ -24,6 +24,10 @@ def on_add(table_view: "TableView"):
         field_definitions = instruction.get("field_definitions")
         initial_data = instruction.get("initial_data")
 
+    # Ensure initial_data is a dictionary if it's an object (for custom views compatibility)
+    if initial_data and not isinstance(initial_data, dict) and hasattr(initial_data, "__dict__"):
+        initial_data = dict(initial_data.__dict__)
+
     def on_submit(data):
         print("Form submitted with data:", data)
         response = table_view.trigger_controller_method("store", data=data)
@@ -32,7 +36,8 @@ def on_add(table_view: "TableView"):
             if response.get("success"):
                 Alert.success(response.get("message"))
                 # Re-fetch and re-render data from controller
-                table_view.render_rows()
+                if table_view.winfo_exists():
+                    table_view.render_rows()
                 # Reload sidebar if this is Navigations module
                 if hasattr(table_view, 'controller_class') and table_view.controller_class.__name__ == 'NavigationsController':
                     reload_sidebar_navigation()
@@ -79,8 +84,15 @@ def on_edit(table_view: "TableView"):
         field_definitions = instruction.get("field_definitions")
         initial_data = instruction.get("initial_data", row)
 
+    # Ensure initial_data is a dictionary if it's an object (for custom views compatibility)
+    if initial_data and not isinstance(initial_data, dict) and hasattr(initial_data, "__dict__"):
+        initial_data = dict(initial_data.__dict__)
+
+    # Robustly get the row ID
+    row_id = getattr(row, "id", None) if not isinstance(row, dict) else row.get("id")
+
     def on_submit(data):
-        response = table_view.trigger_controller_method("update", id=row.id, data=data)
+        response = table_view.trigger_controller_method("update", id=row_id, data=data)
 
         if isinstance(response, dict):
             if response.get("success"):
@@ -88,7 +100,8 @@ def on_edit(table_view: "TableView"):
                 # Refresh table
                 table_view.original_data = table_view.controller_callback() or []
                 table_view.filtered_data = table_view.original_data.copy()
-                table_view.render_rows()
+                if table_view.winfo_exists():
+                    table_view.render_rows()
                 # Reload sidebar if this is Navigations module
                 if hasattr(table_view, 'controller_class') and table_view.controller_class.__name__ == 'NavigationsController':
                     reload_sidebar_navigation()
@@ -100,8 +113,8 @@ def on_edit(table_view: "TableView"):
         return response
 
     if view_type == "custom" and view_class:
-        # For custom views, we assume they handle their own data loading via ID
-        safe_launch(view_class, table_view.winfo_toplevel(), item_id=row.id, callback=on_submit)
+        # Pass both ID and initial_data for custom views
+        safe_launch(view_class, table_view.winfo_toplevel(), item_id=row_id, callback=on_submit, initial_data=initial_data)
     else:
         safe_launch(open_form_popup, "Update Data", field_definitions, on_submit=on_submit, initial_data=initial_data)
 
@@ -129,7 +142,8 @@ def on_delete(table_view: "TableView"):
             Alert.success(response.get("message", "Deleted successfully"))
             # Reset to page 1 and refresh
             table_view.current_page = 1
-            table_view.render_rows()
+            if table_view.winfo_exists():
+                table_view.render_rows()
             # Reload sidebar if this is Navigations module
             if hasattr(table_view, 'controller_class') and table_view.controller_class.__name__ == 'NavigationsController':
                 reload_sidebar_navigation()
@@ -165,7 +179,8 @@ def on_move_up(table_view: "TableView"):
     
     if isinstance(response, dict) and response.get("success"):
         # Silent update - no success popup
-        table_view.render_rows()
+        if table_view.winfo_exists():
+            table_view.render_rows()
         # Reload sidebar navigation
         reload_sidebar_navigation()
     else:
@@ -194,7 +209,8 @@ def on_move_down(table_view: "TableView"):
     
     if isinstance(response, dict) and response.get("success"):
         # Silent update - no success popup
-        table_view.render_rows()
+        if table_view.winfo_exists():
+            table_view.render_rows()
         # Reload sidebar navigation
         reload_sidebar_navigation()
     else:
