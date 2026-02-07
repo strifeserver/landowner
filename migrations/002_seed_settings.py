@@ -43,7 +43,7 @@ def migrate():
         {
             "id": 6,
             "setting_name": "default_current_logged_in_image",
-            "setting_value": "logo.png",
+            "setting_value": "placeholder_user.png",
             "setting_options": "",
         },
     ]

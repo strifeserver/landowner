@@ -109,26 +109,30 @@ class MainWindow:
         # Image Logic
         if image_filename:
             try:
-                # Construct path relative to project root more robustly
                 base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
                 image_path = os.path.join(base_path, "assets", "images", image_filename)
                 
                 if os.path.exists(image_path):
-                    # Try to use PIL for better format support (JPEG, etc.)
-                    try:
-                        from PIL import Image, ImageTk
-                        pil_image = Image.open(image_path)
+                    # 1. Explicitly clear previous image reference if it exists
+                    if hasattr(self.user_info_frame, "image"):
+                        self.user_info_frame.image = None
+
+                    from PIL import Image, ImageTk
+                    import gc
+
+                    # 2. Use context manager to ensure file/image closure
+                    with Image.open(image_path) as pil_image:
                         # Resize to fit sidebar (max width 150px, maintain aspect ratio)
                         pil_image.thumbnail((150, 150), Image.Resampling.LANCZOS)
                         img = ImageTk.PhotoImage(pil_image)
-                    except ImportError:
-                        # Fallback to tk.PhotoImage (only supports PNG/GIF)
-                        img = tk.PhotoImage(file=image_path)
                     
-                    # Keep reference to prevent garbage collection
+                    # 3. Store new image reference
                     self.user_info_frame.image = img 
                     lbl_img = tk.Label(self.user_info_frame, image=img, bg="#e0e0e0")
                     lbl_img.pack(pady=(0, 5))
+
+                    # 4. Trigger cleanup
+                    gc.collect()
                 else:
                     print(f"Image not found at: {image_path}")
             except Exception as e:

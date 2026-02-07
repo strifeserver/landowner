@@ -164,10 +164,21 @@ class MyAccountView(tk.Frame):
             photo_path = os.path.join(base_path, "assets", "images", "placeholder_user.png")
 
         try:
-            img = Image.open(photo_path)
-            img.thumbnail((120, 120), Image.Resampling.LANCZOS)
-            self.photo_img = ImageTk.PhotoImage(img)
-            self.photo_label.config(image=self.photo_img)
+            # 1. Clear existing reference
+            if hasattr(self, "photo_img"):
+                self.photo_img = None
+            
+            import gc
+            from PIL import Image, ImageTk
+
+            # 2. Use context manager for memory safety
+            with Image.open(photo_path) as img:
+                img.thumbnail((120, 120), Image.Resampling.LANCZOS)
+                self.photo_img = ImageTk.PhotoImage(img)
+                self.photo_label.config(image=self.photo_img)
+            
+            # 3. Trigger cleanup
+            gc.collect()
         except Exception as e:
             print(f"Error loading photo: {e}")
 
@@ -175,11 +186,25 @@ class MyAccountView(tk.Frame):
         file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png *.jpg *.jpeg *.gif")])
         if file_path:
             self.display_photo_path = file_path
-            # Preview the new photo
-            img = Image.open(file_path)
-            img.thumbnail((120, 120), Image.Resampling.LANCZOS)
-            self.photo_img = ImageTk.PhotoImage(img)
-            self.photo_label.config(image=self.photo_img)
+            
+            # 1. Clear existing references
+            if hasattr(self, "photo_img"):
+                self.photo_img = None
+            
+            import gc
+            from PIL import Image, ImageTk
+
+            # 2. Load and preview the new photo safely
+            try:
+                with Image.open(file_path) as img:
+                    img.thumbnail((120, 120), Image.Resampling.LANCZOS)
+                    self.photo_img = ImageTk.PhotoImage(img)
+                    self.photo_label.config(image=self.photo_img)
+                
+                # 3. Trigger cleanup
+                gc.collect()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load image: {e}")
 
     def _save_info(self):
         data = {

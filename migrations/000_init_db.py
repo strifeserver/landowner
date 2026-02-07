@@ -14,9 +14,11 @@ def migrate():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             customId TEXT,
+            name TEXT,
             username TEXT,
             password TEXT,
             email TEXT,
+            display_photo TEXT,
             access_level INTEGER,
             account_status TEXT,
             is_locked BOOLEAN,

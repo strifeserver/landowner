@@ -72,7 +72,7 @@ def migrate():
     for user in users:
         cursor.execute(
             """
-            INSERT INTO users (
+            INSERT OR REPLACE INTO users (
                 customId, name, username, password, email, display_photo, access_level,
                 account_status, is_locked, temporary_password,
                 created_at, updated_at
