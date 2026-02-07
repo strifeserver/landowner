@@ -127,6 +127,23 @@ def migrate():
             "is_hidden": False,
             "status": "active",
         },
+        {
+            "id": 8,
+            "menu_name": "Navigations",
+            "navigation_order": 99,
+            "navigation": "navigations",
+            "navigation_type": "menu",
+            "parent_id": None,
+            "controller": "NavigationsController",
+            "datatable_settings": {
+                "is_paginated": True,
+                "items_per_page": 10,
+            },
+            "icon": None,
+            "tooltip": "",
+            "is_hidden": False,
+            "status": "active",
+        },
     ]
 
     for nav in navigations:
@@ -135,7 +152,7 @@ def migrate():
 
         cursor.execute(
             """
-            INSERT INTO navigations (
+            INSERT OR REPLACE INTO navigations (
                 id, menu_name, navigation_order, navigation, navigation_type,
                 parent_id, controller, datatable_settings,
                 icon, tooltip, is_hidden, status,

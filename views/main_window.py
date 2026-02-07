@@ -22,12 +22,36 @@ class MainWindow:
         self.left_frame.grid(row=0, column=0, sticky="nswe")
         self.left_frame.grid_propagate(False)  # <- prevent auto resizing
 
+        # User Info
+        self.user_info_frame = tk.Frame(self.left_frame, bg="#e0e0e0")
+        self.user_info_frame.pack(fill="x", pady=(20, 5), padx=10)
+
+        self.lbl_username = tk.Label(
+            self.user_info_frame, 
+            text="", 
+            bg="#e0e0e0", 
+            fg="black", 
+            font=("Arial", 12, "bold"),
+            anchor="w"
+        )
+        self.lbl_username.pack(fill="x")
+
+        self.lbl_access_level = tk.Label(
+            self.user_info_frame, 
+            text="", 
+            bg="#e0e0e0", 
+            fg="#666666", 
+            font=("Arial", 9),
+            anchor="w"
+        )
+        self.lbl_access_level.pack(fill="x")
+
         tk.Label(
             self.left_frame,
             text="Navigation",
             bg="#e0e0e0",
             font=("Arial", 10, "bold"),
-        ).pack(pady=10)
+        ).pack(pady=(10, 5))
 
         # Container for dynamic menu items
         self.menu_container = tk.Frame(self.left_frame, bg="#e0e0e0")
@@ -56,27 +80,100 @@ class MainWindow:
     # Navigation Loader
     # --------------------------------------------------
     def load_navigation(self):
+        import os
         from utils.session import Session
         from models.access_level import AccessLevel
+        from models.Setting import Setting
 
+        # --------------------------------------------------
+        # 1. Update Current Logged-In Section (User Info Frame)
+        # --------------------------------------------------
+        # Clear existing
+        for widget in self.user_info_frame.winfo_children():
+            widget.destroy()
+
+        # Fetch Settings
+        header_setting = Setting.index(filters={"setting_name": "default_current_logged_in_display_header"})
+        subheader_setting = Setting.index(filters={"setting_name": "default_current_logged_in_sub_header"})
+        image_setting = Setting.index(filters={"setting_name": "default_current_logged_in_image"})
+
+        display_header = header_setting[0].setting_value if header_setting else "LandOwner"
+        sub_header = subheader_setting[0].setting_value if subheader_setting else "Admin Panel"
+        
+        # Strictly use setting value, no hardcoded 'logo.png' fallback logic unless the setting itself is missing
+        # If DB returns nothing, we won't try to load an image.
+        image_filename = image_setting[0].setting_value if image_setting else None
+        
+        print(f"DEBUG: Fetched 'default_current_logged_in_image' setting value: '{image_filename}'")
+
+        # Image Logic
+        if image_filename:
+            try:
+                # Construct path relative to project root more robustly
+                base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                image_path = os.path.join(base_path, "assets", "images", image_filename)
+                
+                if os.path.exists(image_path):
+                    # Try to use PIL for better format support (JPEG, etc.)
+                    try:
+                        from PIL import Image, ImageTk
+                        pil_image = Image.open(image_path)
+                        # Resize to fit sidebar (max width 150px, maintain aspect ratio)
+                        pil_image.thumbnail((150, 150), Image.Resampling.LANCZOS)
+                        img = ImageTk.PhotoImage(pil_image)
+                    except ImportError:
+                        # Fallback to tk.PhotoImage (only supports PNG/GIF)
+                        img = tk.PhotoImage(file=image_path)
+                    
+                    # Keep reference to prevent garbage collection
+                    self.user_info_frame.image = img 
+                    lbl_img = tk.Label(self.user_info_frame, image=img, bg="#e0e0e0")
+                    lbl_img.pack(pady=(0, 5))
+                else:
+                    print(f"Image not found at: {image_path}")
+            except Exception as e:
+                print(f"Failed to load image: {e}")
+
+        # Display Header
+        lbl_header = tk.Label(
+            self.user_info_frame, 
+            text=display_header, 
+            bg="#e0e0e0", 
+            fg="black", 
+            font=("Arial", 12, "bold"),
+            anchor="w"
+        )
+        lbl_header.pack(fill="x")
+
+        # Sub Header
+        lbl_sub = tk.Label(
+            self.user_info_frame, 
+            text=sub_header, 
+            bg="#e0e0e0", 
+            fg="#666666", 
+            font=("Arial", 9),
+            anchor="w"
+        )
+        lbl_sub.pack(fill="x")
+
+
+        # --------------------------------------------------
+        # 2. Navigation Items
+        # --------------------------------------------------
         all_menu_items = Navigation.index()
         menu_items = []
 
         # Permission Filter
         user = Session.get_user()
         if user:
-            # Fetch AccessLevel object
+            # Fetch AccessLevel object for permission check
             access_level = AccessLevel.edit(user.access_level)
             if access_level:
                 allowed_ids = access_level.get_permissions_list('view')
                 # Filter items: keep if item.id is in allowed_ids
                 menu_items = [item for item in all_menu_items if item.id in allowed_ids]
         
-        # If no user or no access level, menu_items remains [] (or maybe we allow public items?)
-        # For this system, assume strictly authenticated.
-
-        
-        # Clear existing menu items
+        # Clear existing menu container items
         for widget in self.menu_container.winfo_children():
             widget.destroy()
 
@@ -86,16 +183,38 @@ class MainWindow:
             if item.parent_id:
                 children_map.setdefault(item.parent_id, []).append(item)
 
+        # Sort items by navigation_order? Assuming index() returns them sorted or DB does.
+        # Ideally should sort by navigation_order.
+        menu_items.sort(key=lambda x: (x.navigation_order or 999))
+
         for item in menu_items:
+            if item.is_hidden:
+                continue
+
             if item.navigation_type == "menu":
                 self.render_menu(item)
 
             elif item.navigation_type == "parent_menu":
                 self.render_parent_menu(item, children_map.get(item.id, []))
+            
+            elif item.navigation_type == "menu_header":
+                self.render_menu_header(item)
 
     # --------------------------------------------------
     # Renderers
     # --------------------------------------------------
+    def render_menu_header(self, item):
+        lbl = tk.Label(
+            self.menu_container,
+            text=item.menu_name.upper(),
+            bg="#e0e0e0",
+            fg="#888888",
+            font=("Arial", 8, "bold"),
+            anchor="w",
+            pady=5
+        )
+        lbl.pack(fill="x", padx=10, pady=(10, 0))
+
     def render_menu(self, item):
         btn = tk.Button(
             self.menu_container,

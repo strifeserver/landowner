@@ -35,6 +35,7 @@ class BaseService:
                         value = row.__dict__[field_key]
 
                         if field_def.get("capitalize1st") and isinstance(value, str):
+                            # print(f"Capitalizing {field_key}: {value}")
                             row.__dict__[field_key] = value[:1].upper() + value[1:]
 
                         if "subtitute_table_values" in field_def:

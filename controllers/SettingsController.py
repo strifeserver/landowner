@@ -7,6 +7,7 @@ class SettingsController:
     @staticmethod
     def index(filters=None, pagination=False, items_per_page=5, page=1, searchAll=None):
         service = SettingsService()
+        # print("DEBUG SETTINGS FIELDS:", Setting.field_definitions)
         return service.index(
             filters=filters or {},
             pagination=pagination,

@@ -8,8 +8,8 @@ class RuleValidator:
 
         for rule in rules:
             if rule == 'required':
-                if value is None or value == "":
-                    errors.append(f"{name} is required.")
+                if value is None or (isinstance(value, str) and value.strip() == ""):
+                     errors.append(f"{name} is required.")
 
             elif rule == 'string':
                 if value is not None and not isinstance(value, str):

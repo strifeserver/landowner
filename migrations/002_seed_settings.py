@@ -22,6 +22,30 @@ def migrate():
             "setting_value": "1024x768",
             "setting_options": "800x600, 1024x768, 1280x800, 1366x768, 1920x1080",
         },
+        {
+            "id": 3,
+            "setting_name": "navigation_button_size",
+            "setting_value": "22",
+            "setting_options": "20, 22, 24, 26, 28, 30",
+        },
+        {
+            "id": 4,
+            "setting_name": "default_current_logged_in_display_header",
+            "setting_value": "LandOwner",
+            "setting_options": "",
+        },
+        {
+            "id": 5,
+            "setting_name": "default_current_logged_in_sub_header",
+            "setting_value": "Admin Panel",
+            "setting_options": "",
+        },
+        {
+            "id": 6,
+            "setting_name": "default_current_logged_in_image",
+            "setting_value": "logo.png",
+            "setting_options": "",
+        },
     ]
 
     for setting in settings_data:

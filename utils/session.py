@@ -30,3 +30,8 @@ class Session:
                 callback()
             except Exception as e:
                 print(f"Error in session callback: {e}")
+
+    @classmethod
+    def notify_observers(cls):
+        """Alias for notify_permission_change to maintain compatibility."""
+        cls.notify_permission_change()

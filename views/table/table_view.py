@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox
 from datetime import datetime, timedelta
 from views.table.table_filters import create_filter_window, apply_advanced_filters
 from views.table.treeview_styles import apply_treeview_style
-from views.table.table_buttons import on_add, on_edit, on_delete
+from views.table.table_buttons import on_add, on_edit, on_delete, on_move_up, on_move_down
 
 
 class TableView(tk.Frame):
@@ -203,6 +203,29 @@ class TableView(tk.Frame):
         else:
             self.delete_btn = None
 
+        # Add Move Up/Down buttons for Navigations module only
+        if title == "Navigations":
+            self.move_down_btn = tk.Button(
+                title_frame,
+                text="Move Down",
+                state=tk.DISABLED,
+                command=lambda: on_move_down(self),
+                width=10,
+            )
+            self.move_down_btn.pack(side=tk.RIGHT, padx=10)
+
+            self.move_up_btn = tk.Button(
+                title_frame,
+                text="Move Up",
+                state=tk.DISABLED,
+                command=lambda: on_move_up(self),
+                width=10,
+            )
+            self.move_up_btn.pack(side=tk.RIGHT, padx=10)
+        else:
+            self.move_up_btn = None
+            self.move_down_btn = None
+
     def create_search_and_filter(self, parent):
         search_frame = tk.Frame(parent)
         search_frame.pack(fill=tk.X, pady=(0, 5))
@@ -341,6 +364,13 @@ class TableView(tk.Frame):
         
         if hasattr(self, 'delete_btn') and self.delete_btn:
             self.delete_btn.config(state=tk.NORMAL if selected else tk.DISABLED)
+        
+        # Enable/disable move buttons for Navigations
+        if hasattr(self, 'move_up_btn') and self.move_up_btn:
+            self.move_up_btn.config(state=tk.NORMAL if selected else tk.DISABLED)
+        
+        if hasattr(self, 'move_down_btn') and self.move_down_btn:
+            self.move_down_btn.config(state=tk.NORMAL if selected else tk.DISABLED)
 
     def filter_all(self):
         create_filter_window(self)
@@ -401,6 +431,10 @@ class TableView(tk.Frame):
             elif method_name == "update":
                 return method(id, data)
             elif method_name == "destroy":
+                return method(id)
+            elif method_name == "move_up":
+                return method(id)
+            elif method_name == "move_down":
                 return method(id)
             else:
                 print(f"Unsupported method '{method_name}'")

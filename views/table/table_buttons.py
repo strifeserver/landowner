@@ -33,6 +33,9 @@ def on_add(table_view: "TableView"):
                 Alert.success(response.get("message"))
                 # Re-fetch and re-render data from controller
                 table_view.render_rows()
+                # Reload sidebar if this is Navigations module
+                if hasattr(table_view, 'controller_class') and table_view.controller_class.__name__ == 'NavigationsController':
+                    reload_sidebar_navigation()
             elif "errors" in response:
                 Alert.error(response["errors"], title="Validation Error")
             else:
@@ -86,6 +89,9 @@ def on_edit(table_view: "TableView"):
                 table_view.original_data = table_view.controller_callback() or []
                 table_view.filtered_data = table_view.original_data.copy()
                 table_view.render_rows()
+                # Reload sidebar if this is Navigations module
+                if hasattr(table_view, 'controller_class') and table_view.controller_class.__name__ == 'NavigationsController':
+                    reload_sidebar_navigation()
             elif "errors" in response:
                 Alert.error(response["errors"], title="Validation Error")
             else:
@@ -124,6 +130,9 @@ def on_delete(table_view: "TableView"):
             # Reset to page 1 and refresh
             table_view.current_page = 1
             table_view.render_rows()
+            # Reload sidebar if this is Navigations module
+            if hasattr(table_view, 'controller_class') and table_view.controller_class.__name__ == 'NavigationsController':
+                reload_sidebar_navigation()
         else:
             msg = response.get("message", "Delete failed") if isinstance(response, dict) else "Delete failed"
             Alert.error(msg)
@@ -133,3 +142,67 @@ def on_delete(table_view: "TableView"):
         title="Confirm Delete",
         on_confirm=execute_delete
     )
+
+
+def on_move_up(table_view: "TableView"):
+    """Move selected navigation item up (increase order)"""
+    selected = table_view.tree.selection()
+    if not selected:
+        Alert.error("Please select a navigation item to move")
+        return
+    
+    item_id = selected[0]
+    index = table_view.tree.index(item_id)
+    row = table_view.filtered_data[index]
+    
+    row_id = getattr(row, "id", None) if not isinstance(row, dict) else row.get("id")
+    
+    if row_id is None:
+        Alert.error("No 'id' field found in the selected row.", title="Move Error")
+        return
+    
+    response = table_view.trigger_controller_method("move_up", id=row_id)
+    
+    if isinstance(response, dict) and response.get("success"):
+        # Silent update - no success popup
+        table_view.render_rows()
+        # Reload sidebar navigation
+        reload_sidebar_navigation()
+    else:
+        msg = response.get("message", "Failed to move navigation") if isinstance(response, dict) else "Failed to move navigation"
+        Alert.error(msg)
+
+
+def on_move_down(table_view: "TableView"):
+    """Move selected navigation item down (decrease order)"""
+    selected = table_view.tree.selection()
+    if not selected:
+        Alert.error("Please select a navigation item to move")
+        return
+    
+    item_id = selected[0]
+    index = table_view.tree.index(item_id)
+    row = table_view.filtered_data[index]
+    
+    row_id = getattr(row, "id", None) if not isinstance(row, dict) else row.get("id")
+    
+    if row_id is None:
+        Alert.error("No 'id' field found in the selected row.", title="Move Error")
+        return
+    
+    response = table_view.trigger_controller_method("move_down", id=row_id)
+    
+    if isinstance(response, dict) and response.get("success"):
+        # Silent update - no success popup
+        table_view.render_rows()
+        # Reload sidebar navigation
+        reload_sidebar_navigation()
+    else:
+        msg = response.get("message", "Failed to move navigation") if isinstance(response, dict) else "Failed to move navigation"
+        Alert.error(msg)
+
+
+def reload_sidebar_navigation():
+    """Trigger sidebar navigation reload"""
+    from utils.session import Session
+    Session.notify_observers()

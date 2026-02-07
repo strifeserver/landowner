@@ -15,7 +15,7 @@ class Setting(BaseModel):
     # Add field_definitions to work with BaseService
     field_definitions = {
         "id": {},
-        "setting_name": {"capitalize1st": True},
+        "setting_name": {"capitalize1st": False},
         "setting_value": {},
         "setting_options": {
                 "is_hidden": True,

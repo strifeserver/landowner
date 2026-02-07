@@ -1,111 +1,155 @@
 # utils/form_popup.py
 import tkinter as tk
+from tkinter import ttk
+from utils.Alert import Alert
 
 def open_form_popup(title, field_definitions, on_submit, initial_data=None):
     """
     Opens a generic form popup for creating or editing a record.
-
-    Args:
-        title (str): Popup window title
-        field_definitions (dict): Field metadata (aliases, editable, options)
-        on_submit (callable): Function to call on form submission
-        initial_data (dict or object, optional): Pre-fill form fields
+    Dynamically switches to 2-column layout if there are many fields.
     """
-    print('open_form_popup')
-    print(' ')
-    print(' ')
-    print(field_definitions)
-    print(' ')
-    print(' ')
-
     popup = tk.Toplevel()
     popup.title(title)
-    popup.geometry("400x500")
-
+    
     entries = {}
     
+    # Filter visible fields first to determine layout
+    visible_fields = []
     for field_name, config in field_definitions.items():
-        # Skip auto-managed fields
-        if field_name in ("id", "created_at", "updated_at") or config.get("is_hidden"):
+        if field_name in ("id", "created_at", "updated_at"):
             continue
+        if config.get("is_hidden") is True:
+            continue
+        visible_fields.append((field_name, config))
+    
+    field_count = len(visible_fields)
+    use_two_columns = field_count > 6
+    
+    # Calculate initial geometry estimate
+    if use_two_columns:
+        popup.geometry("800x600") # Two columns, wider
+    else:
+        popup.geometry("400x500") # Single column
 
+    # Main container (holds Fields + Button Frame)
+    main_container = tk.Frame(popup, padx=20, pady=20)
+    main_container.pack(fill="both", expand=True)
+
+    # 1. Fields Container (Grid)
+    fields_frame = tk.Frame(main_container)
+    fields_frame.pack(fill="both", expand=True, side="top")
+
+    # Grid configuration for fields_frame
+    if use_two_columns:
+        fields_frame.columnconfigure(0, weight=1)
+        fields_frame.columnconfigure(1, weight=1)
+    else:
+        fields_frame.columnconfigure(0, weight=1)
+
+    for i, (field_name, config) in enumerate(visible_fields):
+        # ... logic ...
         label = config.get("alias", field_name)
         is_editable = config.get("editable", True)
         options = config.get("options", None)
 
-        # ✅ Get value from initial_data whether it's a dict or object
         if isinstance(initial_data, dict):
             value = initial_data.get(field_name, "")
         elif initial_data is not None:
             value = getattr(initial_data, field_name, "")
         else:
             value = ""
+        if value is None:
+            value = ""
 
-        frame = tk.Frame(popup)
-        frame.pack(fill=tk.X, padx=10, pady=5)
+        if use_two_columns:
+            row = i // 2
+            col = i % 2
+            padx = (0, 10) if col == 0 else (10, 0)
+        else:
+            row = i
+            col = 0
+            padx = 0
 
-        tk.Label(frame, text=label, anchor="w").pack(fill=tk.X)
+        # Field Frame (Cell)
+        frame = tk.Frame(fields_frame)
+        frame.grid(row=row, column=col, sticky="new", padx=padx, pady=5)
+        
+        tk.Label(frame, text=label, anchor="w", font=("Arial", 9, "bold")).pack(fill=tk.X)
 
-        # Choose input type
-        if options:
+        if options is not None:
             input_widget = create_dropdown_field(frame, options, value, is_editable)
         else:
             input_widget = create_text_field(frame, value, is_editable)
 
         entries[field_name] = input_widget
 
-    # Submit Button
+    # 2. Button Container (Bottom)
+    btn_frame = tk.Frame(main_container, pady=20)
+    btn_frame.pack(fill="x", side="bottom")
+
     submit_btn = tk.Button(
-        popup, text="Submit", command=lambda: handle_submit(entries, on_submit, popup)
+        btn_frame, 
+        text="Submit", 
+        width=20, # Fixed width
+        command=lambda: handle_submit(entries, on_submit, popup),
+        height=2
     )
-    submit_btn.pack(pady=10)
+    submit_btn.pack() # Center by default
 
-
-# ----------------------------
-# Helper functions
-# ----------------------------
 
 def create_text_field(parent, value="", editable=True):
-    """Creates a single-line text Entry widget."""
     entry = tk.Entry(parent)
-    entry.insert(0, value if value is not None else "")
+    entry.insert(0, str(value))
     if not editable:
         entry.config(state="disabled")
-    entry.pack(fill=tk.X)
+    entry.pack(fill=tk.X, ipady=3)
     return entry
 
 
-from tkinter import ttk
-import tkinter as tk
-
 def create_dropdown_field(parent, options, current_value=None, editable=True):
     """
-    Creates a Combobox (HTML-like Select) with optional label-to-value mapping.
-
-    Args:
-        parent (tk.Widget): Parent frame
-        options (list): List of values or list of dicts {"label": str, "value": any}
-        current_value (any): Current value to pre-select
-        editable (bool): If False, the dropdown is readonly
-
-    Returns:
-        tuple: (tk.StringVar, dict or None) → variable and optional label_to_value map
+    Creates a Combobox.
+    Returns a tuple: (StringVar, label_to_value_map)
     """
     # Check if options are objects with label/value
-    is_object_list = all(isinstance(opt, dict) and "label" in opt and "value" in opt for opt in options)
+    # Robust check: allow empty options to treat as object list if needed, or simple list
+    # But usually empty options means nothing to select.
+    
+    is_object_list = False
+    if options and isinstance(options, list):
+        if len(options) > 0 and isinstance(options[0], dict) and "label" in options[0] and "value" in options[0]:
+            is_object_list = True
+    
+    # Handle empty options case for object list logic (if field definition implies it)
+    # Here we infer from first item. If empty, default to simple string list (doesn't matter much)
 
+    combo_values = []
+    label_to_value = {}
+    value_to_label = {}
+    
     if is_object_list:
-        # Build mapping
-        label_to_value = {opt["label"]: opt["value"] for opt in options}
-        value_to_label = {str(opt["value"]): opt["label"] for opt in options}
+        for opt in options:
+            lbl = str(opt["label"])
+            val = opt["value"]
+            label_to_value[lbl] = val
+            value_to_label[str(val)] = lbl # Key by string representation of value
+            combo_values.append(lbl)
+            
+        # Determine default selected label from current_value
+        default_label = value_to_label.get(str(current_value), "")
+        if not default_label and current_value == "": 
+             # If current value is empty and no label matches, try to pick first or leave empty
+             default_label = ""
+        elif not default_label:
+             # If value has no label, show value as label?
+             default_label = str(current_value)
 
-        # Determine default selected label
-        default_label = value_to_label.get(str(current_value), next(iter(label_to_value)))
-        combo_values = list(label_to_value.keys())
     else:
-        label_to_value = None
-        combo_values = options
-        default_label = str(current_value) if current_value is not None else str(options[0])
+        # Simple list
+        combo_values = [str(x) for x in options]
+        default_label = str(current_value)
+        # Verify if value matches one of the options, otherwise might want to default to ""?
+        # Combobox can hold custom text though.
 
     var = tk.StringVar(value=default_label)
 
@@ -115,23 +159,38 @@ def create_dropdown_field(parent, options, current_value=None, editable=True):
         values=combo_values,
         state="readonly" if not editable else "normal",
     )
-    combobox.pack(fill=tk.X, pady=2)
+    combobox.pack(fill=tk.X, ipady=3)
 
-    return var, label_to_value
+    return (var, label_to_value)
 
-
-from utils.Alert import Alert
 
 def handle_submit(entries, on_submit, popup):
-    """
-    Collects all values from the form and calls the on_submit callback.
-    """
     data = {}
     for field, widget in entries.items():
         if isinstance(widget, tk.Entry):
             data[field] = widget.get()
-        elif isinstance(widget, tk.StringVar):
-            data[field] = widget.get()
+        elif isinstance(widget, tuple):
+            # It is a dropdown (var, label_to_value)
+            var, label_to_value = widget
+            selected_label = var.get()
+            
+            if label_to_value and selected_label in label_to_value:
+                # Ensure we strictly mapped back to the value expected by the database/model
+                data[field] = label_to_value[selected_label]
+            else:
+                # Fallback: maybe the value itself is selected or it's a direct entry
+                # Check if the selected label IS a key in our value map (case sensitivity?)
+                # For now, just use what we have, but validation might fail if it expects "menu" and gets "Menu"
+                # If label_to_value exists, we should try to find the value
+                found = False
+                if label_to_value:
+                    for lbl, val in label_to_value.items():
+                        if lbl == selected_label:
+                             data[field] = val
+                             found = True
+                             break
+                if not found:
+                    data[field] = selected_label
         else:
             data[field] = None
 
@@ -139,9 +198,7 @@ def handle_submit(entries, on_submit, popup):
         response = on_submit(data)
         
         if isinstance(response, dict):
-            # Form stays open if there are errors (handled by caller's Alert)
             if response.get("success"):
                 popup.destroy()
         else:
-            # Fallback for old controllers
             popup.destroy()

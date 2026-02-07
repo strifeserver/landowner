@@ -32,9 +32,11 @@ class BaseModel:
         custom_fields=None,
         debug=False,
         table_alias=None,
+        sort_by=None,
+        sort_order='ASC',
     ):
         """
-        Generic SQLite SELECT handler with optional LEFT JOINs, filters, search, and pagination.
+        Generic SQLite SELECT handler with optional LEFT JOINs, filters, search, sorting, and pagination.
 
         Args:
             db_path (str): Path to SQLite database
@@ -49,6 +51,8 @@ class BaseModel:
             custom_fields (list): Fields corresponding to custom_query for mapping
             debug (bool): Print SQL debug info
             table_alias (str): Alias for main table (used in joins and ambiguous fields)
+            sort_by (str): Field name to sort by
+            sort_order (str): Sort direction ('ASC' or 'DESC')
         """
         import sqlite3
 
@@ -113,6 +117,14 @@ class BaseModel:
         final_query = base_query
         if where_clauses:
             final_query += " WHERE " + " AND ".join(where_clauses)
+
+        # -----------------------
+        # Apply ORDER BY
+        # -----------------------
+        if sort_by:
+            # Validate sort_order
+            sort_order = sort_order.upper() if sort_order.upper() in ['ASC', 'DESC'] else 'ASC'
+            final_query += f" ORDER BY {sort_by} {sort_order}"
 
         # -----------------------
         # Pagination
