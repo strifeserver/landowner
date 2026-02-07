@@ -44,32 +44,39 @@ class RightPanel(tk.Frame):
                 filters={}, pagination=True, items_per_page=10, page=1
             )
 
-            if initial_result:
+            if initial_result is not None:
                 data_list = initial_result["data"] if isinstance(initial_result, dict) else initial_result
+                
+                # Try to get model class from data or controller
+                model_class = None
+                if data_list:
+                    model_class = data_list[0].__class__
+                elif hasattr(controller_class, "model"):
+                    model_class = controller_class.model
 
-                if not data_list:
-                    tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
-                    self.create_footer()
-                    return
-
-                # Get model class
-                model_class = data_list[0].__class__
-
-                # ------------------------------------------
-                # 1. SAFE HANDLING OF get_visible_fields()
-                # ------------------------------------------
-                if hasattr(model_class, "get_visible_fields") and callable(getattr(model_class, "get_visible_fields")):
-                    visible_fields = model_class.get_visible_fields()
+                if not model_class:
+                    if not data_list:
+                        tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
+                        self.create_footer()
+                        return
+                    else:
+                        # Fallback for data without model class
+                        sample = data_list[0].__dict__ if hasattr(data_list[0], "__dict__") else data_list[0]
+                        visible_fields = [(field, field.replace("_", " ").title()) for field in sample.keys()]
                 else:
-                    # Fallback: auto-generate visible fields from model attributes
-                    sample = data_list[0].__dict__
-                    visible_fields = [(field, field.replace("_", " ").title()) for field in sample.keys()]
+                    # Use get_visible_fields from model class
+                    if hasattr(model_class, "get_visible_fields") and callable(getattr(model_class, "get_visible_fields")):
+                        visible_fields = model_class.get_visible_fields()
+                    else:
+                        # Fallback: auto-generate visible fields from model attributes
+                        sample = data_list[0].__dict__ if data_list else {}
+                        visible_fields = [(field, field.replace("_", " ").title()) for field in sample.keys()]
 
                 columns = [field for field, _ in visible_fields]
                 column_labels = [alias for _, alias in visible_fields]
 
                 # Convert objects → dicts
-                data = [obj.__dict__ for obj in data_list]
+                data = [obj.__dict__ for obj in data_list] if data_list and hasattr(data_list[0], "__dict__") else []
 
                 # Fetch Navigation ID to pass to TableView for permissions
                 from models.navigation import Navigation
@@ -130,8 +137,13 @@ class RightPanel(tk.Frame):
                         return []
 
                 table.controller_callback = controller_callback
+                
+                if isinstance(initial_result, dict):
+                    table.total_rows = initial_result.get("total_rows", 0)
+                    table.total_pages = initial_result.get("total_pages", 1)
+                    table.last_page = initial_result.get("last_page", 1)
+                
                 table.render_rows()
-
             else:
                 tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
 

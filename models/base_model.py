@@ -21,26 +21,27 @@ class BaseModel:
     def index_sqlite(
         cls,
         db_path,
-        table_name,
+        target_table,
         fields,
+        custom_fields=None,
         filters=None,
         search=None,
         pagination=False,
         items_per_page=10,
         page=1,
+        sort_by="id",
+        sort_order="DESC",
         custom_query=None,
-        custom_fields=None,
-        debug=False,
         table_alias=None,
-        sort_by=None,
-        sort_order='ASC',
+        debug=False,
+        **kwargs,
     ):
         """
         Generic SQLite SELECT handler with optional LEFT JOINs, filters, search, sorting, and pagination.
 
         Args:
             db_path (str): Path to SQLite database
-            table_name (str): Main table name
+            target_table (str): Main table name
             fields (list): List of main table fields
             filters (dict): Filters in key=value form
             search (str): Search term applied across all selected fields
@@ -65,10 +66,10 @@ class BaseModel:
             base_query = custom_query
         else:
             quoted_fields = [f'"{f}"' for f in fields]
-            base_query = f"SELECT {', '.join(quoted_fields)} FROM {table_name}"
+            base_query = f"SELECT {', '.join(quoted_fields)} FROM {target_table}"
 
-        # Use alias if provided, else default to table_name
-        alias = table_alias or table_name
+        # Use alias if provided, else default to target_table
+        alias = table_alias or target_table
 
         # Get ambiguous fields from the model
         ambiguous_fields = getattr(cls, "get_ambiguous_fields", lambda: [])()
@@ -122,9 +123,11 @@ class BaseModel:
         # Apply ORDER BY
         # -----------------------
         if sort_by:
+            # Automatically prefix ambiguous fields with main table alias
+            sort_field = f"{alias}.{sort_by}" if sort_by in ambiguous_fields else sort_by
             # Validate sort_order
             sort_order = sort_order.upper() if sort_order.upper() in ['ASC', 'DESC'] else 'ASC'
-            final_query += f" ORDER BY {sort_by} {sort_order}"
+            final_query += f" ORDER BY {sort_field} {sort_order}"
 
         # -----------------------
         # Pagination
@@ -141,6 +144,12 @@ class BaseModel:
         # -----------------------
         # Execute query
         # -----------------------
+        if debug:
+            print("\n====== SQL INDEX DEBUG ======")
+            print("SQL Query:", final_query)
+            print("Params:", params)
+            print("===========================\n")
+
         cursor.execute(final_query, params)
         rows = cursor.fetchall()
         conn.close()
@@ -184,7 +193,7 @@ class BaseModel:
     def edit_sqlite(
         cls,
         db_path,
-        table_name,
+        target_table,
         fields,
         row_id=None,
         filters=None,
@@ -198,7 +207,7 @@ class BaseModel:
 
         Args:
             db_path (str): Path to SQLite database
-            table_name (str): Table name
+            target_table (str): Table name
             fields (list): List of fields to select
             row_id (int, optional): ID of row to fetch
             filters (dict, optional): Other key=value filters
@@ -223,8 +232,8 @@ class BaseModel:
         else:
             # Quote fields to avoid reserved keyword issues (e.g. "add")
             quoted_fields = [f'"{f}"' for f in fields]
-            base_query = f"SELECT {', '.join(quoted_fields)} FROM {table_name}"
-        alias = table_alias or table_name
+            base_query = f"SELECT {', '.join(quoted_fields)} FROM {target_table}"
+        alias = table_alias or target_table
 
         where_clauses = []
         params = []
@@ -271,7 +280,7 @@ class BaseModel:
 
 
     @classmethod
-    def store_sqlite(cls, db_path, table_name, **kwargs):
+    def store_sqlite(cls, db_path, target_table, **kwargs):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
@@ -284,7 +293,7 @@ class BaseModel:
         values = list(kwargs.values())
 
         cursor.execute(
-            f"INSERT INTO {table_name} ({fields}) VALUES ({placeholders})", values
+            f"INSERT INTO {target_table} ({fields}) VALUES ({placeholders})", values
         )
         conn.commit()
         last_id = cursor.lastrowid
@@ -294,7 +303,7 @@ class BaseModel:
         return cls(**kwargs)
 
     @classmethod
-    def update_sqlite(cls, db_path, table_name, row_id, **kwargs):
+    def update_sqlite(cls, db_path, target_table, row_id, **kwargs):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
@@ -303,7 +312,7 @@ class BaseModel:
         values = list(kwargs.values())
         values.append(row_id)
 
-        query = f"UPDATE {table_name} SET {set_clause} WHERE id = ?"
+        query = f"UPDATE {target_table} SET {set_clause} WHERE id = ?"
         cursor.execute(query, values)
         conn.commit()
         conn.close()
@@ -311,11 +320,11 @@ class BaseModel:
         return True
 
     @classmethod
-    def destroy_sqlite(cls, db_path, table_name, row_id):
+    def destroy_sqlite(cls, db_path, target_table, row_id):
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
 
-        query = f"DELETE FROM {table_name} WHERE id=?"
+        query = f"DELETE FROM {target_table} WHERE id=?"
         cursor.execute(query, (row_id,))
         conn.commit()
         conn.close()

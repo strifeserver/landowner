@@ -1,0 +1,336 @@
+# services/CrudBuilderService.py
+import os
+import json
+import sqlite3
+from models.CrudBuilder import CrudBuilder
+from services.BaseService import BaseService
+
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'data.db')
+
+class CrudBuilderService(BaseService):
+    def __init__(self):
+        super().__init__(CrudBuilder)
+
+    def generate_module(self, data):
+        """
+        Generates Model, Service, Controller, and Migration for a new module.
+        """
+        name = data.get("name")
+        fields_json = data.get("fields_json") # List of dicts: [ {alias, name, type, visible, editable, options}, ... ]
+        sort_field = data.get("sort_field", "id")
+        sort_direction = data.get("sort_direction", "ASC")
+
+        if not name:
+            return {"success": False, "message": "Name is required"}
+
+        table_name = name.lower().replace(" ", "_")
+        
+        # 1. Save definition
+        builder_record = self.model.store(
+            name=name,
+            table_name=table_name,
+            fields_json=fields_json,
+            sort_field=sort_field,
+            sort_direction=sort_direction
+        )
+
+        # 2. Generate Files
+        try:
+            self._generate_model(name, table_name, fields_json, sort_field, sort_direction)
+            self._generate_service(name)
+            self._generate_controller(name)
+            self._generate_migration(name, table_name, fields_json)
+            self._add_navigation(name, table_name)
+            
+            return {"success": True, "builder_id": builder_record.id}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def update_module(self, id, data):
+        """Update definition and regenerate files."""
+        name = data.get("name")
+        fields_json = data.get("fields_json")
+        sort_field = data.get("sort_field", "id")
+        sort_direction = data.get("sort_direction", "ASC")
+
+        old_record = self.model.edit(id)
+        if not old_record:
+            return {"success": False, "message": "Record not found"}
+
+        table_name = old_record.table_name # Assume table name doesn't change for now
+
+        self.model.update(id, name=name, fields_json=fields_json, sort_field=sort_field, sort_direction=sort_direction)
+
+        try:
+            self._generate_model(name, table_name, fields_json, sort_field, sort_direction)
+            self._generate_service(name)
+            self._generate_controller(name)
+            # update_module usually doesn't need a new migration unless we track schema changes
+            # For simplicity, we might just update the files. 
+            # If fields change, user might need to run a manual SQL or we can try to ALTER TABLE.
+            
+            return {"success": True}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+    def delete_module(self, id):
+        record = self.model.edit(id)
+        if record:
+            name = record.name
+            table_name = record.table_name
+            class_name = name.replace(" ", "")
+
+            # 1. Delete navigation entry
+            conn = sqlite3.connect(DB_PATH)
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM navigations WHERE navigation = ?", (table_name,))
+            
+            # 2. Drop the table (optional safety: could be skipped, but user requested)
+            try:
+                cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
+            except Exception as e:
+                print(f"Error dropping table {table_name}: {e}")
+            
+            conn.commit()
+            conn.close()
+
+            # 3. Delete generated files
+            files_to_delete = [
+                os.path.join("models", f"{class_name}.py"),
+                os.path.join("services", f"{class_name}Service.py"),
+                os.path.join("controllers", f"{class_name}Controller.py")
+            ]
+            
+            # Find and add migration file
+            migration_dir = "migrations"
+            if os.path.exists(migration_dir):
+                for f in os.listdir(migration_dir):
+                    if f.endswith(f"_create_{table_name}_table.py"):
+                        files_to_delete.append(os.path.join(migration_dir, f))
+
+            for file_path in files_to_delete:
+                if os.path.exists(file_path):
+                    try:
+                        os.remove(file_path)
+                    except Exception as e:
+                        print(f"Error deleting file {file_path}: {e}")
+            
+            # 4. Delete the CRUD definition record
+            return self.model.destroy(id)
+        return False
+
+    def _generate_model(self, name, table_name, fields_json, sort_field, sort_direction):
+        class_name = name.replace(" ", "")
+        fields_list = json.loads(fields_json) if isinstance(fields_json, str) else fields_json
+        
+        # Build fields list for the model
+        model_fields = ["id"]
+        field_defs = {
+            "id": {"alias": "ID", "is_hidden": False, "order": 0, "editable": False}
+        }
+        
+        for i, f in enumerate(fields_list):
+            fname = f.get("name")
+            model_fields.append(fname)
+            field_defs[fname] = {
+                "alias": f.get("alias"),
+                "order": i + 1,
+                "editable": f.get("editable", True),
+                "is_hidden": not f.get("visible", True)
+            }
+            if f.get("type") == "dropdown" and f.get("options"):
+                field_defs[fname]["options"] = f.get("options")
+
+        model_fields.extend(["created_at", "updated_at"])
+        field_defs["created_at"] = {"alias": "Created", "order": len(fields_list) + 1, "is_hidden": True}
+        field_defs["updated_at"] = {"alias": "Updated", "order": len(fields_list) + 2, "is_hidden": True}
+
+        import pprint
+        formatted_defs = pprint.pformat(field_defs, indent=8)
+        content = f"""import os
+from models.base_model import BaseModel
+
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'data.db')
+
+class {class_name}(BaseModel):
+    table_name = "{table_name}"
+    fields = {model_fields}
+    field_definitions = {formatted_defs}
+
+    def __init__(self, **kwargs):
+        for field in self.fields:
+            setattr(self, field, kwargs.get(field))
+
+    @classmethod
+    def index(cls, filters=None, search=None, pagination=False, items_per_page=10, page=1, **kwargs):
+        return super().index_sqlite(
+            DB_PATH,
+            cls.table_name,
+            cls.fields,
+            filters=filters,
+            search=search,
+            pagination=pagination,
+            items_per_page=items_per_page,
+            page=page,
+            sort_by=kwargs.get('sort_by', '{sort_field}'),
+            sort_order=kwargs.get('sort_order', '{sort_direction}')
+        )
+
+    @classmethod
+    def edit(cls, id):
+        return super().edit_sqlite(DB_PATH, cls.table_name, cls.fields, row_id=id)
+
+    @classmethod
+    def store(cls, **kwargs):
+        return super().store_sqlite(DB_PATH, cls.table_name, **kwargs)
+
+    @classmethod
+    def update(cls, id, **kwargs):
+        return super().update_sqlite(DB_PATH, cls.table_name, id, **kwargs)
+
+    @classmethod
+    def destroy(cls, id):
+        return super().destroy_sqlite(DB_PATH, cls.table_name, id)
+
+    @classmethod
+    def get_dynamic_field_definitions(cls):
+        return cls.field_definitions
+"""
+        with open(os.path.join("models", f"{class_name}.py"), "w") as f:
+            f.write(content)
+
+    def _generate_service(self, name):
+        class_name = name.replace(" ", "")
+        content = f"""from models.{class_name} import {class_name}
+from services.BaseService import BaseService
+
+class {class_name}Service(BaseService):
+    def __init__(self):
+        super().__init__({class_name})
+"""
+        with open(os.path.join("services", f"{class_name}Service.py"), "w") as f:
+            f.write(content)
+
+    def _generate_controller(self, name):
+        class_name = name.replace(" ", "")
+        content = f"""from models.{class_name} import {class_name}
+from services.{class_name}Service import {class_name}Service
+
+class {class_name}Controller:
+    model = {class_name}
+    @staticmethod
+    def index(filters=None, pagination=False, items_per_page=10, page=1, searchAll=None):
+        service = {class_name}Service()
+        return service.index(
+            filters=filters or {{}},
+            pagination=pagination,
+            items_per_page=items_per_page,
+            page=page,
+            search=searchAll
+        )
+
+    @staticmethod
+    def create():
+        return {{
+            "view_type": "generic",
+            "field_definitions": {class_name}.get_dynamic_field_definitions()
+        }}
+
+    @staticmethod
+    def store(data):
+        service = {class_name}Service()        
+        result = service.store(data)
+        return {{"success": True, "message": "{name} created successfully"}} if result else {{"success": False, "message": "Failed to create {name.lower()}"}}
+
+    @staticmethod
+    def edit(data):
+        return {{
+            "view_type": "generic",
+            "field_definitions": {class_name}.get_dynamic_field_definitions(),
+            "initial_data": data
+        }}
+
+    @staticmethod
+    def update(id, data):
+        service = {class_name}Service()   
+        result = service.update(id, data)
+        return {{"success": True, "message": "{name} updated successfully"}} if result else {{"success": False, "message": "Failed to update {name.lower()}"}}
+
+    @staticmethod
+    def destroy(id):
+        service = {class_name}Service()   
+        result = service.delete(id)
+        return {{"success": True, "message": "{name} deleted successfully"}} if result else {{"success": False, "message": "Failed to delete {name.lower()}"}}
+"""
+        with open(os.path.join("controllers", f"{class_name}Controller.py"), "w") as f:
+            f.write(content)
+
+    def _generate_migration(self, name, table_name, fields_json):
+        fields_list = json.loads(fields_json) if isinstance(fields_json, str) else fields_json
+        cols = ["id INTEGER PRIMARY KEY AUTOINCREMENT"]
+        for f in fields_list:
+            fname = f.get("name")
+            ftype = "TEXT"
+            if f.get("type") == "number":
+                ftype = "REAL"
+            cols.append(f"{fname} {ftype}")
+        cols.append("created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+        cols.append("updated_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+        
+        cols_str = ",\n            ".join(cols)
+        
+        migration_name = f"create_{table_name}_table"
+        import time
+        ts = int(time.time())
+        filename = f"{ts}_{migration_name}.py"
+        
+        content = f"""import sqlite3
+import os
+
+DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "data.db")
+
+def migrate():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS {table_name} (
+            {cols_str}
+        )
+    ''')
+    conn.commit()
+    conn.close()
+    print(f"Migration {migration_name} complete.")
+
+if __name__ == "__main__":
+    migrate()
+"""
+        migration_path = os.path.join("migrations", filename)
+        with open(migration_path, "w") as f:
+            f.write(content)
+        
+        # Run migration immediately
+        import subprocess
+        subprocess.run(["python", migration_path])
+
+    def _add_navigation(self, name, table_name):
+        class_name = name.replace(" ", "")
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        # Get max order
+        cursor.execute("SELECT MAX(navigation_order) FROM navigations")
+        max_order = cursor.fetchone()[0] or 0
+        
+        cursor.execute("""
+            INSERT INTO navigations (
+                menu_name, navigation_order, navigation, navigation_type,
+                controller, status, created_at, updated_at
+            ) VALUES (?, ?, ?, 'menu', ?, 'active', DATETIME('now'), DATETIME('now'))
+        """, (name, max_order + 1, table_name, f"{class_name}Controller"))
+        
+        conn.commit()
+        conn.close()
+        
+        # Notify sidebar to reload
+        from utils.session import Session
+        Session.notify_observers()
