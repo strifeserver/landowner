@@ -60,7 +60,7 @@ class Session:
                 else:
                     cls.clear_session()
             except Exception as e:
-                print(f"Error loading session: {e}")
+                pass
                 cls.clear_session()
         return False
 
@@ -84,7 +84,7 @@ class Session:
             try:
                 callback()
             except Exception as e:
-                print(f"Error in session callback: {e}")
+                pass
 
     @classmethod
     def notify_observers(cls):

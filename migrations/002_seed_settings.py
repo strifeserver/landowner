@@ -46,6 +46,24 @@ def migrate():
             "setting_value": "placeholder_user.png",
             "setting_options": "",
         },
+        {
+            "id": 7,
+            "setting_name": "app_logo",
+            "setting_value": "logo.png",
+            "setting_options": "",
+        },
+        {
+            "id": 8,
+            "setting_name": "app_name",
+            "setting_value": "LandOwner",
+            "setting_options": "",
+        },
+        {
+            "id": 9,
+            "setting_name": "copyright",
+            "setting_value": "LandOwner © 2026",
+            "setting_options": "",
+        },
     ]
 
     for setting in settings_data:

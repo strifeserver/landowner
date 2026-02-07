@@ -14,7 +14,8 @@ def safe_launch(callable_obj, *args, **kwargs):
         error_msg = str(e)
         full_traceback = traceback.format_exc()
         
-        print(f"!!! SAFE LAUNCH EXCEPTION !!!\n{full_traceback}")
+        
+        
         
         messagebox.showerror(
             "System Error",

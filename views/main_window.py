@@ -5,6 +5,49 @@ from models.Setting import Setting
 from views.right_panel import RightPanel
 
 
+class AnimatedLabel(tk.Label):
+    """A Label that can display an animated GIF."""
+    def __init__(self, master, file_path, size=(150, 150), **kwargs):
+        super().__init__(master, **kwargs)
+        from PIL import Image, ImageTk
+        self.frames = []
+        self.delay = 100
+        
+        try:
+            with Image.open(file_path) as img:
+                self.delay = img.info.get('duration', 100)
+                try:
+                    while True:
+                        frame = img.copy()
+                        frame.thumbnail(size, Image.Resampling.LANCZOS)
+                        self.frames.append(ImageTk.PhotoImage(frame))
+                        img.seek(len(self.frames))
+                except EOFError:
+                    pass
+        except Exception as e:
+            print(f"Error loading animated image: {e}")
+
+        self.idx = 0
+        self._after_id = None
+        if self.frames:
+            self.config(image=self.frames[0])
+            if len(self.frames) > 1:
+                self.animate()
+        
+        self.bind("<Destroy>", lambda e: self.stop_animation())
+
+    def animate(self):
+        if not self.winfo_exists():
+            return
+        self.idx = (self.idx + 1) % len(self.frames)
+        self.config(image=self.frames[self.idx])
+        self._after_id = self.after(self.delay, self.animate)
+
+    def stop_animation(self):
+        if self._after_id:
+            self.after_cancel(self._after_id)
+            self._after_id = None
+
 class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
@@ -104,7 +147,6 @@ class MainWindow:
         # Priority: 1. User display_photo, 2. setting default
         image_filename = user.display_photo if user and user.display_photo else (image_setting[0].setting_value if image_setting else None)
         
-        print(f"DEBUG: Fetched 'default_current_logged_in_image' setting value: '{image_filename}'")
 
         # Image Logic
         if image_filename:
@@ -113,30 +155,24 @@ class MainWindow:
                 image_path = os.path.join(base_path, "assets", "images", image_filename)
                 
                 if os.path.exists(image_path):
-                    # 1. Explicitly clear previous image reference if it exists
-                    if hasattr(self.user_info_frame, "image"):
-                        self.user_info_frame.image = None
+                    # 1. Stop and clear previous animated image if it exists
+                    if hasattr(self.user_info_frame, "anim_label") and self.user_info_frame.anim_label:
+                        self.user_info_frame.anim_label.stop_animation()
+                        self.user_info_frame.anim_label.destroy()
+                        self.user_info_frame.anim_label = None
 
-                    from PIL import Image, ImageTk
                     import gc
 
-                    # 2. Use context manager to ensure file/image closure
-                    with Image.open(image_path) as pil_image:
-                        # Resize to fit sidebar (max width 150px, maintain aspect ratio)
-                        pil_image.thumbnail((150, 150), Image.Resampling.LANCZOS)
-                        img = ImageTk.PhotoImage(pil_image)
-                    
-                    # 3. Store new image reference
-                    self.user_info_frame.image = img 
-                    lbl_img = tk.Label(self.user_info_frame, image=img, bg="#e0e0e0")
-                    lbl_img.pack(pady=(0, 5))
+                    # 2. Use AnimatedLabel to handle both static images and GIFs
+                    self.user_info_frame.anim_label = AnimatedLabel(self.user_info_frame, image_path, size=(150, 150), bg="#e0e0e0")
+                    self.user_info_frame.anim_label.pack(pady=(0, 5))
 
-                    # 4. Trigger cleanup
+                    # 3. Trigger cleanup
                     gc.collect()
                 else:
-                    print(f"Image not found at: {image_path}")
+                    pass
             except Exception as e:
-                print(f"Failed to load image: {e}")
+                pass
 
         # Display Header
         lbl_header = tk.Label(
@@ -203,6 +239,11 @@ class MainWindow:
             
             elif item.navigation_type == "menu_header":
                 self.render_menu_header(item)
+
+        # --- Dashboard Landing Page Redirect ------------------------------
+        dashboard_nav = next((i for i in menu_items if i.navigation == "dashboard"), None)
+        if dashboard_nav:
+            self.on_menu_click(dashboard_nav.navigation, dashboard_nav.controller, dashboard_nav.menu_name)
 
     # --------------------------------------------------
     # Renderers

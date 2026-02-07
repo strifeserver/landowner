@@ -91,7 +91,6 @@ class TableView(tk.Frame):
             }
             return perms
         except Exception as e:
-            print(f"Permission check error: {e}")
             return {'add': False, 'edit': False, 'delete': False}
 
     def create_treeview_table(self, parent):
@@ -376,7 +375,6 @@ class TableView(tk.Frame):
         create_filter_window(self)
         
     def refresh_table(self):
-        print('Refresh Table')
         self.current_page = 1     # optional, reset pagination
         self.search_entry.delete(0, tk.END)  # optional, clear search
         self.render_rows()
@@ -413,12 +411,10 @@ class TableView(tk.Frame):
 
     def trigger_controller_method(self, method_name, id=None, data=None):
         if not hasattr(self, "controller_class"):
-            print("Controller class not set.")
             return
 
         method = getattr(self.controller_class, method_name, None)
         if not callable(method):
-            print(f"Method '{method_name}' not found in controller.")
             return
 
         try:
@@ -437,6 +433,6 @@ class TableView(tk.Frame):
             elif method_name == "move_down":
                 return method(id)
             else:
-                print(f"Unsupported method '{method_name}'")
+                pass
         except TypeError as e:
-            print(f"Error calling '{method_name}': {e}")
+            pass

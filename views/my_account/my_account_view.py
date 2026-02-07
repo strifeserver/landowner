@@ -5,6 +5,50 @@ from controllers.MyAccountController import MyAccountController
 from PIL import Image, ImageTk
 import os
 
+class AnimatedLabel(tk.Label):
+    """A Label that can display an animated GIF."""
+    def __init__(self, master, file_path, size=(120, 120), **kwargs):
+        super().__init__(master, **kwargs)
+        from PIL import Image, ImageTk
+        self.frames = []
+        self.delay = 100
+        
+        try:
+            with Image.open(file_path) as img:
+                self.delay = img.info.get('duration', 100)
+                try:
+                    while True:
+                        frame = img.copy()
+                        frame.thumbnail(size, Image.Resampling.LANCZOS)
+                        self.frames.append(ImageTk.PhotoImage(frame))
+                        img.seek(len(self.frames))
+                except EOFError:
+                    pass
+        except Exception as e:
+            # Fallback if animation fails
+            pass
+
+        self.idx = 0
+        self._after_id = None
+        if self.frames:
+            self.config(image=self.frames[0])
+            if len(self.frames) > 1:
+                self.animate()
+        
+        self.bind("<Destroy>", lambda e: self.stop_animation())
+
+    def animate(self):
+        if not self.winfo_exists():
+            return
+        self.idx = (self.idx + 1) % len(self.frames)
+        self.config(image=self.frames[self.idx])
+        self._after_id = self.after(self.delay, self.animate)
+
+    def stop_animation(self):
+        if self._after_id:
+            self.after_cancel(self._after_id)
+            self._after_id = None
+
 class MyAccountView(tk.Frame):
     def __init__(self, parent):
         super().__init__(parent, bg="#f5f5f5")
@@ -63,13 +107,15 @@ class MyAccountView(tk.Frame):
         info_frame.pack(fill="x")
 
         # Photo (Left side of info)
-        photo_subframe = tk.Frame(info_frame, bg="white")
-        photo_subframe.pack(side="left", padx=(0, 20))
+        self.photo_subframe = tk.Frame(info_frame, bg="white")
+        self.photo_subframe.pack(side="left", padx=(0, 20))
 
-        self.photo_label = tk.Label(photo_subframe, bg="white")
-        self.photo_label.pack()
+        self.image_container = tk.Frame(self.photo_subframe, bg="white")
+        self.image_container.pack(side="top")
+
+        self.anim_photo = None
         self._load_photo()
-        tk.Button(photo_subframe, text="Change Photo", command=self._change_photo).pack(pady=5)
+        tk.Button(self.photo_subframe, text="Change Photo", command=self._change_photo).pack(side="top", pady=5)
 
         # Inputs (Right side of info)
         input_subframe = tk.Frame(info_frame, bg="white")
@@ -164,42 +210,40 @@ class MyAccountView(tk.Frame):
             photo_path = os.path.join(base_path, "assets", "images", "placeholder_user.png")
 
         try:
-            # 1. Clear existing reference
-            if hasattr(self, "photo_img"):
-                self.photo_img = None
+            # 1. Stop and clear existing animated photo if it exists
+            if self.anim_photo:
+                self.anim_photo.stop_animation()
+                self.anim_photo.destroy()
+                self.anim_photo = None
             
             import gc
-            from PIL import Image, ImageTk
 
-            # 2. Use context manager for memory safety
-            with Image.open(photo_path) as img:
-                img.thumbnail((120, 120), Image.Resampling.LANCZOS)
-                self.photo_img = ImageTk.PhotoImage(img)
-                self.photo_label.config(image=self.photo_img)
+            # 2. Use AnimatedLabel for potential GIFs
+            self.anim_photo = AnimatedLabel(self.image_container, photo_path, size=(120, 120), bg="white")
+            self.anim_photo.pack(fill="both", expand=True)
             
             # 3. Trigger cleanup
             gc.collect()
         except Exception as e:
-            print(f"Error loading photo: {e}")
+            pass
 
     def _change_photo(self):
         file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png *.jpg *.jpeg *.gif")])
         if file_path:
             self.display_photo_path = file_path
             
-            # 1. Clear existing references
-            if hasattr(self, "photo_img"):
-                self.photo_img = None
+            # 1. Stop and clear existing animated photo
+            if self.anim_photo:
+                self.anim_photo.stop_animation()
+                self.anim_photo.destroy()
+                self.anim_photo = None
             
             import gc
-            from PIL import Image, ImageTk
 
             # 2. Load and preview the new photo safely
             try:
-                with Image.open(file_path) as img:
-                    img.thumbnail((120, 120), Image.Resampling.LANCZOS)
-                    self.photo_img = ImageTk.PhotoImage(img)
-                    self.photo_label.config(image=self.photo_img)
+                self.anim_photo = AnimatedLabel(self.image_container, file_path, size=(120, 120), bg="white")
+                self.anim_photo.pack(fill="both", expand=True)
                 
                 # 3. Trigger cleanup
                 gc.collect()

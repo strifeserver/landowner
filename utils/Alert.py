@@ -78,7 +78,7 @@ class Alert:
             icon_label.image = photo  # Keep reference
             icon_label.pack()
         except Exception as e:
-            print(f"Alert Icon Error: {e}")
+            pass
             tk.Label(icon_frame, text="!", font=("Arial", 40, "bold"), fg=accent_color, bg=bg_color).pack()
 
         # 5. Title

@@ -93,7 +93,7 @@ class RightPanel(tk.Frame):
                     if navs:
                         nav_item = navs[0]
                 except Exception as e:
-                    print(f"Error fetching navigation for {nav_name}: {e}")
+                    pass
 
                 # Create Table
                 table = TableView(
@@ -136,7 +136,6 @@ class RightPanel(tk.Frame):
                         return result["data"]
 
                     except Exception as err:
-                        print("Filter error:", err)
                         table.total_rows = 0
                         table.total_pages = 1
                         table.last_page = 1
@@ -154,8 +153,6 @@ class RightPanel(tk.Frame):
                 tk.Label(self, text="No data found", bg="#ffffff").pack(pady=20)
 
         except Exception as e:
-            print("Error loading content:", e)
-            traceback.print_exc()
             tk.Label(self, text=f"Error loading: {str(e)}", fg="red", bg="#ffffff").pack(pady=20)
 
         self.create_footer()
@@ -186,10 +183,14 @@ class RightPanel(tk.Frame):
         footer_frame = tk.Frame(padded_frame, bg=sys_bg)
         footer_frame.pack(side=tk.TOP, fill=tk.X, padx=10, pady=10)
 
-        # Left label
+        # Left label (Settings Based)
+        from models.Setting import Setting
+        copy_set = Setting.index(filters={"setting_name": "copyright"})
+        copyright_text = copy_set[0].setting_value if copy_set else "LandOwner © 2025"
+
         tk.Label(
             footer_frame,
-            text="Landowner©2025",
+            text=copyright_text,
             font=("Arial", font_size),
             bg=sys_bg
         ).pack(side=tk.LEFT)
@@ -207,6 +208,8 @@ class RightPanel(tk.Frame):
 
         
     def update_memory_usage(self):
+        if not self.winfo_exists():
+            return
         process = psutil.Process(os.getpid())
         mem_mb = process.memory_info().rss / (1024 * 1024)
         self.memory_label.config(text=f"Memory Usage: {mem_mb:.2f} MB")
@@ -244,6 +247,8 @@ class RightPanel(tk.Frame):
 
         # Function to update the datetime label
         def update_datetime():
+            if not self.winfo_exists():
+                return
             now = datetime.now()
             date_str = now.strftime("%m/%d/%Y")
             time_str = now.strftime("%I:%M %p")

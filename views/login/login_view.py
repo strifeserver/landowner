@@ -3,25 +3,100 @@ import tkinter as tk
 from tkinter import messagebox
 from views.main_window import MainWindow  # Make sure this import works correctly
 
+class AnimatedLabel(tk.Label):
+    """A Label that can display an animated GIF."""
+    def __init__(self, master, file_path, size=(120, 120), **kwargs):
+        super().__init__(master, **kwargs)
+        from PIL import Image, ImageTk
+        self.frames = []
+        self.delay = 100
+        
+        try:
+            with Image.open(file_path) as img:
+                self.delay = img.info.get('duration', 100)
+                try:
+                    while True:
+                        # Process frame
+                        frame = img.copy()
+                        frame.thumbnail(size, Image.Resampling.LANCZOS)
+                        self.frames.append(ImageTk.PhotoImage(frame))
+                        img.seek(len(self.frames)) # Skip to next frame
+                except EOFError:
+                    pass # End of frames
+        except Exception as e:
+            pass
+
+        self.idx = 0
+        self._after_id = None
+        if self.frames:
+            self.config(image=self.frames[0])
+            if len(self.frames) > 1:
+                self.animate()
+        
+        self.bind("<Destroy>", lambda e: self.stop_animation())
+
+    def animate(self):
+        if not self.winfo_exists():
+            return
+        self.idx = (self.idx + 1) % len(self.frames)
+        self.config(image=self.frames[self.idx])
+        self._after_id = self.after(self.delay, self.animate)
+
+    def stop_animation(self):
+        if self._after_id:
+            self.after_cancel(self._after_id)
+            self._after_id = None
+
 class LoginView:
     def __init__(self, controller):
         self.controller = controller
         self.root = tk.Tk()
         self.root.title("Login")
-        self.root.geometry("300x200")
+        
+        # Load Settings for Branding
+        from models.Setting import Setting
+        app_name_set = Setting.index(filters={"setting_name": "app_name"})
+        app_logo_set = Setting.index(filters={"setting_name": "app_logo"})
+        
+        app_name = app_name_set[0].setting_value if app_name_set else "LandOwner"
+        logo_filename = app_logo_set[0].setting_value if app_logo_set else None
 
-        tk.Label(self.root, text="Username").pack(pady=5)
-        self.username_entry = tk.Entry(self.root)
-        self.username_entry.pack()
+        self.root.geometry("400x500")
+        self.root.config(bg="#f5f5f5")
 
-        tk.Label(self.root, text="Password").pack(pady=5)
-        self.password_entry = tk.Entry(self.root, show="*")
-        self.password_entry.pack()
+        # Main Container
+        main_frame = tk.Frame(self.root, bg="#f5f5f5")
+        main_frame.place(relx=0.5, rely=0.5, anchor="center")
 
-        button_frame = tk.Frame(self.root)
-        button_frame.pack(pady=20)
+        # Branding Section
+        if logo_filename:
+            try:
+                import os
+                base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+                logo_path = os.path.join(base_path, "assets", "images", logo_filename)
+                
+                if os.path.exists(logo_path):
+                    # Use AnimatedLabel for potential GIFs
+                    self.logo_label = AnimatedLabel(main_frame, logo_path, size=(120, 120), bg="#f5f5f5")
+                    self.logo_label.pack(pady=(0, 10))
+            except Exception as e:
+                pass
 
-        tk.Button(button_frame, text="Login", command=self.handle_login).pack(side=tk.LEFT, padx=10)
+        tk.Label(main_frame, text=app_name, font=("Arial", 18, "bold"), bg="#f5f5f5").pack(pady=(0, 30))
+
+        # Form
+        tk.Label(main_frame, text="Username", bg="#f5f5f5", font=("Arial", 10)).pack(pady=2, anchor="w")
+        self.username_entry = tk.Entry(main_frame, width=30, font=("Arial", 10))
+        self.username_entry.pack(pady=(0, 10))
+
+        tk.Label(main_frame, text="Password", bg="#f5f5f5", font=("Arial", 10)).pack(pady=2, anchor="w")
+        self.password_entry = tk.Entry(main_frame, show="*", width=30, font=("Arial", 10))
+        self.password_entry.pack(pady=(0, 20))
+
+        button_frame = tk.Frame(main_frame, bg="#f5f5f5")
+        button_frame.pack(pady=10)
+
+        tk.Button(button_frame, text="Login", command=self.handle_login, width=10).pack(side=tk.LEFT, padx=10)
 
         # 🔑 Check for Quick Login (active session)
         from utils.session import Session

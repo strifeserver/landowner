@@ -144,11 +144,6 @@ class BaseModel:
         # -----------------------
         # Execute query
         # -----------------------
-        if debug:
-            print("\n====== SQL INDEX DEBUG ======")
-            print("SQL Query:", final_query)
-            print("Params:", params)
-            print("===========================\n")
 
         cursor.execute(final_query, params)
         rows = cursor.fetchall()
@@ -160,19 +155,6 @@ class BaseModel:
         # -----------------------
         # Debug
         # -----------------------
-        if debug:
-            print("\n====== SQL DEBUG ======")
-            print("SQL Query:", final_query)
-            print("Params:", params)
-            if filters:
-                print("Filters:", filters)
-            if pagination:
-                print("Page:", page, "Items per page:", items_per_page)
-                print("Total Rows (before pagination):", total_rows)
-            print("data:")
-            from utils.debug import print_r
-            print_r(data)
-            print("=======================\n")
 
         # -----------------------
         # Conditional return
@@ -262,11 +244,6 @@ class BaseModel:
             final_query += " WHERE " + " AND ".join(where_clauses)
         final_query += " LIMIT 1"  # always fetch only one
 
-        if debug:
-            print("\n====== SQL GET DEBUG ======")
-            print("SQL Query:", final_query)
-            print("Params:", params)
-            print("===========================\n")
 
         cursor.execute(final_query, params)
         row = cursor.fetchone()

@@ -89,7 +89,7 @@ class CrudBuilderService(BaseService):
             try:
                 cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
             except Exception as e:
-                print(f"Error dropping table {table_name}: {e}")
+                pass
             
             conn.commit()
             conn.close()
@@ -113,7 +113,7 @@ class CrudBuilderService(BaseService):
                     try:
                         os.remove(file_path)
                     except Exception as e:
-                        print(f"Error deleting file {file_path}: {e}")
+                        pass
             
             # 4. Delete the CRUD definition record
             return self.model.destroy(id)
