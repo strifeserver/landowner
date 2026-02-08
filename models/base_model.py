@@ -85,8 +85,10 @@ class BaseModel:
                 if value is None or value == "":
                     continue
 
-                # Automatically prefix ambiguous fields with main table alias
-                field_name = f"{alias}.{key}" if key in ambiguous_fields else key
+                # Automatically prefix fields to avoid ambiguity if table_alias/alias is provided
+                # We prefix if the key is explicitly ambiguous OR if it exists in our main table fields
+                is_ambiguous = key in ambiguous_fields or (fields and key in fields)
+                field_name = f"{alias}.{key}" if is_ambiguous else key
 
                 if key.endswith("_from"):
                     field_name = field_name.replace("_from", "")
@@ -234,7 +236,9 @@ class BaseModel:
             for key, value in filters.items():
                 if value is None or value == "":
                     continue
-                field_name = f"{alias}.{key}" if key in ambiguous_fields else key
+                # Automatically prefix fields to avoid ambiguity
+                is_ambiguous = key in ambiguous_fields or (fields and key in fields)
+                field_name = f"{alias}.{key}" if is_ambiguous else key
                 where_clauses.append(f"{field_name} = ?")
                 params.append(value)
 
@@ -265,6 +269,19 @@ class BaseModel:
         kwargs["created_at"] = now
         kwargs["updated_at"] = now
 
+        # Tracking created_by and updated_by
+        try:
+            from utils.session import Session
+            user = Session.get_user()
+            if user:
+                model_fields = getattr(cls, "fields", [])
+                if "created_by" in model_fields:
+                    kwargs["created_by"] = user.id
+                if "updated_by" in model_fields:
+                    kwargs["updated_by"] = user.id
+        except Exception:
+            pass
+
         fields = ", ".join(f'"{key}"' for key in kwargs.keys())
         placeholders = ", ".join("?" for _ in kwargs)
         values = list(kwargs.values())
@@ -285,6 +302,18 @@ class BaseModel:
         cursor = conn.cursor()
 
         kwargs["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Tracking updated_by
+        try:
+            from utils.session import Session
+            user = Session.get_user()
+            if user:
+                model_fields = getattr(cls, "fields", [])
+                if "updated_by" in model_fields:
+                    kwargs["updated_by"] = user.id
+        except Exception:
+            pass
+
         set_clause = ", ".join(f'"{key}"=?' for key in kwargs.keys())
         values = list(kwargs.values())
         values.append(row_id)

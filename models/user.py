@@ -55,6 +55,8 @@ class User(BaseModel):
         },
         "created_at": {"alias": "Date Created", "order": 10},
         "updated_at": {"alias": "Date Updated", "order": 11},
+        "created_by_name": {"alias": "Created By", "order": 12, "editable": False},
+        "updated_by_name": {"alias": "Updated By", "order": 13, "editable": False},
     }
 
     # -----------------------
@@ -74,6 +76,8 @@ class User(BaseModel):
         "temporary_password",
         "created_at",
         "updated_at",
+        "created_by",
+        "updated_by",
     ]
 
     # -----------------------
@@ -84,6 +88,8 @@ class User(BaseModel):
             setattr(self, field, kwargs.get(field))
         # Joined field
         self.access_level_name = kwargs.get("access_level_name")
+        self.created_by_name = kwargs.get("created_by_name")
+        self.updated_by_name = kwargs.get("updated_by_name")
 
     # -----------------------
     # CRUD wrappers
@@ -122,18 +128,21 @@ class User(BaseModel):
             filters = {"id": id}
 
         # -----------------------
-        # Use join query to include access_level_name
+        # Use join query to include access_level_name and audit names
         # -----------------------
         user_fields = [f"u.{field}" for field in cls.fields]
         join_query = f"""
             SELECT
                 {', '.join(user_fields)},
-                a.access_level_name AS access_level_name
+                a.access_level_name AS access_level_name,
+                COALESCE(u_creator.name, u_creator.username) as created_by_name,
+                COALESCE(u_updater.name, u_updater.username) as updated_by_name
             FROM {cls.table_name} u
-            LEFT JOIN access_levels a
-                ON u.access_level = a.id
+            LEFT JOIN access_levels a ON u.access_level = a.id
+            LEFT JOIN users u_creator ON u.created_by = u_creator.id
+            LEFT JOIN users u_updater ON u.updated_by = u_updater.id
         """
-        custom_fields = cls.fields + ["access_level_name"]
+        custom_fields = cls.fields + ["access_level_name", "created_by_name", "updated_by_name"]
 
         return super().edit_sqlite(
             DB_PATH,
@@ -174,14 +183,17 @@ class User(BaseModel):
         join_query = f"""
             SELECT
                 {', '.join(user_fields)},
-                a.access_level_name AS access_level_name
+                a.access_level_name AS access_level_name,
+                COALESCE(u_creator.name, u_creator.username) as created_by_name,
+                COALESCE(u_updater.name, u_updater.username) as updated_by_name
             FROM {cls.table_name} u
-            LEFT JOIN access_levels a
-                ON u.access_level = a.id
+            LEFT JOIN access_levels a ON u.access_level = a.id
+            LEFT JOIN users u_creator ON u.created_by = u_creator.id
+            LEFT JOIN users u_updater ON u.updated_by = u_updater.id
         """
 
         # Map SELECT columns → object attributes
-        custom_fields = cls.fields + ["access_level_name"]
+        custom_fields = cls.fields + ["access_level_name", "created_by_name", "updated_by_name"]
 
         return super().index_sqlite(
             DB_PATH,

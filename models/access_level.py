@@ -32,6 +32,10 @@ class AccessLevel(BaseModel):
         "delete": {"alias": "Delete", "is_hidden": True, "order": 6, "editable": False},
         "export": {"alias": "Export", "is_hidden": True, "order": 7, "editable": False},
         "import": {"alias": "Import", "is_hidden": True, "order": 8, "editable": False},
+        "created_at": {"alias": "Date Created", "order": 9, "is_hidden": True},
+        "updated_at": {"alias": "Date Updated", "order": 10, "is_hidden": True},
+        "created_by_name": {"alias": "Created By", "order": 11, "editable": False},
+        "updated_by_name": {"alias": "Updated By", "order": 12, "editable": False},
     }
 
     # Only DB columns
@@ -45,11 +49,18 @@ class AccessLevel(BaseModel):
         "delete",
         "export",
         "import",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "updated_by",
     ]
 
     def __init__(self, **kwargs):
         for field in self.fields:
-            setattr(self, field, kwargs.get(field, ""))
+            setattr(self, field, kwargs.get(field))
+        # Joined fields
+        self.created_by_name = kwargs.get("created_by_name")
+        self.updated_by_name = kwargs.get("updated_by_name")
 
     def get_permissions_list(self, permission_type):
         """Returns a list of integer IDs from the CSV string of the given permission type."""
@@ -96,10 +107,19 @@ class AccessLevel(BaseModel):
         """
         # Default SELECT query if no custom_query
         if not custom_query:
-            prefix = f"{table_alias}." if table_alias else ""
+            prefix = f"{table_alias or 't'}."
             fields_to_select = [f'{prefix}"{f}"' for f in cls.fields]
             select_clause = ", ".join(fields_to_select)
-            custom_query = f"SELECT {select_clause} FROM {cls.table_name} {table_alias or ''}"
+            custom_query = f"""
+                SELECT {select_clause},
+                       COALESCE(u1.name, u1.username) as created_by_name,
+                       COALESCE(u2.name, u2.username) as updated_by_name
+                FROM {cls.table_name} {table_alias or 't'}
+                LEFT JOIN users u1 ON {table_alias or 't'}.created_by = u1.id
+                LEFT JOIN users u2 ON {table_alias or 't'}.updated_by = u2.id
+            """
+            custom_fields = cls.fields + ["created_by_name", "updated_by_name"]
+            table_alias = table_alias or "t"
 
         if not custom_fields:
             custom_fields = cls.fields
@@ -158,10 +178,18 @@ class AccessLevel(BaseModel):
 
         # If no custom query, just select all fields
         if not custom_query:
-            final_fields = cls.fields
-            table_alias = table_alias or cls.table_name
-            quoted_fields = [f'"{f}"' for f in cls.fields]
-            custom_query = f"SELECT {', '.join(quoted_fields)} FROM {cls.table_name}"
+            table_alias = table_alias or "t"
+            prefix = f"{table_alias}."
+            quoted_fields = [f'{prefix}"{f}"' for f in cls.fields]
+            custom_query = f"""
+                SELECT {', '.join(quoted_fields)},
+                       COALESCE(u1.name, u1.username) as created_by_name,
+                       COALESCE(u2.name, u2.username) as updated_by_name
+                FROM {cls.table_name} {table_alias}
+                LEFT JOIN users u1 ON {table_alias}.created_by = u1.id
+                LEFT JOIN users u2 ON {table_alias}.updated_by = u2.id
+            """
+            final_fields = cls.fields + ["created_by_name", "updated_by_name"]
         else:
             final_fields = custom_fields or cls.fields
             table_alias = table_alias or "t"

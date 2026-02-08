@@ -62,12 +62,12 @@ class CrudBuilderService(BaseService):
         self.model.update(id, name=name, fields_json=fields_json, sort_field=sort_field, sort_direction=sort_direction)
 
         try:
+            # Sync database schema first
+            self._sync_table_schema(table_name, fields_json)
+            
             self._generate_model(name, table_name, fields_json, sort_field, sort_direction)
             self._generate_service(name)
             self._generate_controller(name)
-            # update_module usually doesn't need a new migration unless we track schema changes
-            # For simplicity, we might just update the files. 
-            # If fields change, user might need to run a manual SQL or we can try to ALTER TABLE.
             
             return {"success": True}
         except Exception as e:
@@ -141,9 +141,11 @@ class CrudBuilderService(BaseService):
             if f.get("type") == "dropdown" and f.get("options"):
                 field_defs[fname]["options"] = f.get("options")
 
-        model_fields.extend(["created_at", "updated_at"])
-        field_defs["created_at"] = {"alias": "Created", "order": len(fields_list) + 1, "is_hidden": True}
-        field_defs["updated_at"] = {"alias": "Updated", "order": len(fields_list) + 2, "is_hidden": True}
+        model_fields.extend(["created_at", "updated_at", "created_by", "updated_by"])
+        field_defs["created_at"] = {"alias": "Date Created", "order": len(fields_list) + 1, "is_hidden": True}
+        field_defs["updated_at"] = {"alias": "Date Updated", "order": len(fields_list) + 2, "is_hidden": True}
+        field_defs["created_by_name"] = {"alias": "Created By", "order": len(fields_list) + 3, "editable": False}
+        field_defs["updated_by_name"] = {"alias": "Updated By", "order": len(fields_list) + 4, "editable": False}
 
         import pprint
         formatted_defs = pprint.pformat(field_defs, indent=8)
@@ -160,9 +162,23 @@ class {class_name}(BaseModel):
     def __init__(self, **kwargs):
         for field in self.fields:
             setattr(self, field, kwargs.get(field))
+        # Joined fields
+        self.created_by_name = kwargs.get("created_by_name")
+        self.updated_by_name = kwargs.get("updated_by_name")
 
     @classmethod
     def index(cls, filters=None, search=None, pagination=False, items_per_page=10, page=1, **kwargs):
+        base_fields = [f"t.{{f}}" for f in cls.fields]
+        join_query = f\"\"\"
+            SELECT {{', '.join(base_fields)}}, 
+                   COALESCE(u1.name, u1.username) as created_by_name,
+                   COALESCE(u2.name, u2.username) as updated_by_name
+            FROM {{cls.table_name}} t
+            LEFT JOIN users u1 ON t.created_by = u1.id
+            LEFT JOIN users u2 ON t.updated_by = u2.id
+        \"\"\"
+        custom_fields = cls.fields + ["created_by_name", "updated_by_name"]
+
         return super().index_sqlite(
             DB_PATH,
             cls.table_name,
@@ -173,12 +189,34 @@ class {class_name}(BaseModel):
             items_per_page=items_per_page,
             page=page,
             sort_by=kwargs.get('sort_by', '{sort_field}'),
-            sort_order=kwargs.get('sort_order', '{sort_direction}')
+            sort_order=kwargs.get('sort_order', '{sort_direction}'),
+            custom_query=join_query,
+            custom_fields=custom_fields,
+            table_alias="t"
         )
 
     @classmethod
     def edit(cls, id):
-        return super().edit_sqlite(DB_PATH, cls.table_name, cls.fields, row_id=id)
+        base_fields = [f"t.{{f}}" for f in cls.fields]
+        join_query = f\"\"\"
+            SELECT {{', '.join(base_fields)}}, 
+                   COALESCE(u1.name, u1.username) as created_by_name,
+                   COALESCE(u2.name, u2.username) as updated_by_name
+            FROM {{cls.table_name}} t
+            LEFT JOIN users u1 ON t.created_by = u1.id
+            LEFT JOIN users u2 ON t.updated_by = u2.id
+        \"\"\"
+        custom_fields = cls.fields + ["created_by_name", "updated_by_name"]
+
+        return super().edit_sqlite(
+            DB_PATH, 
+            cls.table_name, 
+            cls.fields, 
+            row_id=id,
+            custom_query=join_query,
+            custom_fields=custom_fields,
+            table_alias="t"
+        )
 
     @classmethod
     def store(cls, **kwargs):
@@ -276,6 +314,8 @@ class {class_name}Controller:
             cols.append(f"{fname} {ftype}")
         cols.append("created_at DATETIME DEFAULT CURRENT_TIMESTAMP")
         cols.append("updated_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+        cols.append("created_by INTEGER")
+        cols.append("updated_by INTEGER")
         
         cols_str = ",\n            ".join(cols)
         
@@ -334,3 +374,34 @@ if __name__ == "__main__":
         # Notify sidebar to reload
         from utils.session import Session
         Session.notify_observers()
+
+    def _sync_table_schema(self, table_name, fields_json):
+        """Adds missing columns to the database table."""
+        fields_list = json.loads(fields_json) if isinstance(fields_json, str) else fields_json
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        existing_cols = [row[1] for row in cursor.fetchall()]
+        
+        for f in fields_list:
+            fname = f.get("name")
+            if fname not in existing_cols:
+                ftype = "TEXT"
+                if f.get("type") == "number":
+                    ftype = "REAL"
+                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {fname} {ftype}")
+        
+        # Ensure audit fields exist
+        audit_fields = {
+            "created_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP",
+            "created_by": "INTEGER",
+            "updated_by": "INTEGER"
+        }
+        for col, col_type in audit_fields.items():
+            if col not in existing_cols:
+                cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} {col_type}")
+                
+        conn.commit()
+        conn.close()

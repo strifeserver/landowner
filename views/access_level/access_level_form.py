@@ -5,7 +5,7 @@ from models.navigation import Navigation
 from models.access_level import AccessLevel
 
 class AccessLevelForm(tk.Toplevel):
-    def __init__(self, parent_master, item_id=None, callback=None):
+    def __init__(self, parent_master, item_id=None, callback=None, **kwargs):
         """
         parent_master: The parent Tk widget
         item_id: ID to edit, or None for Add mode
