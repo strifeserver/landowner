@@ -7,10 +7,13 @@ from views.table.table_buttons import on_add, on_edit, on_delete, on_move_up, on
 
 
 class TableView(tk.Frame):
-    def __init__(self, parent, data, controller_callback=None, title="Table View", columns=None, column_labels=None, nav_id=None, *args, **kwargs,):
+    def __init__(self, parent, data, controller_callback=None, title="Table View", columns=None, column_labels=None, nav_id=None, table_name=None, *args, **kwargs,):
         super().__init__(parent, *args, **kwargs)
         self.controller_callback = controller_callback
-        self.original_data = data.copy()
+        self.table_name = table_name # Store table name for settings lookup
+        from models.table_setting import TableSetting
+        self.table_settings = TableSetting.fetch_by_table_name(table_name) if table_name else None
+
         self.filtered_data = data.copy()
         self.advance_filter = {}
         self.current_page = 1
@@ -48,6 +51,32 @@ class TableView(tk.Frame):
         else:
             self.column_labels = column_labels
 
+        # Apply Table Settings if available
+        if self.table_settings:
+            import json
+            self.items_per_page = self.table_settings.items_per_page or 10
+            
+            # Reconstruct columns and labels based on settings_json
+            if self.table_settings.settings_json:
+                try:
+                    settings = json.loads(self.table_settings.settings_json)
+                    new_cols = []
+                    new_labels = []
+                    
+                    # Settings is a list of column configs: {name, alias, visible, order, capitalize_first}
+                    # We expect them to be sorted by order in the JSON already, but we can re-sort
+                    sorted_settings = sorted(settings, key=lambda x: x.get('order', 99))
+                    
+                    for s in sorted_settings:
+                        if s.get('visible', True):
+                            col_name = s.get('name')
+                            new_cols.append(col_name)
+                            new_labels.append(s.get('alias', col_name))
+                    
+                    self.columns = new_cols
+                    self.column_labels = new_labels
+                except Exception as e:
+                    print(f"Error parsing table settings JSON for {self.table_name}: {e}")
         
         self.create_header(title)
 
@@ -96,7 +125,7 @@ class TableView(tk.Frame):
     def create_treeview_table(self, parent):
         #Table style Config
         table_style_config = {
-            "table_height": 10,   
+            "table_height": self.table_settings.table_height // 30 if self.table_settings and self.table_settings.table_height else 10,   
             "table_heading_font_size": 12,   
             "table_row_font_size": 11,   
             "table_font": "Arial",   
@@ -179,9 +208,10 @@ class TableView(tk.Frame):
             tk.Button(title_frame, text="Add", command=lambda: on_add(self), width=10).pack(side=tk.RIGHT, padx=10)
         
         if perms['edit']:
+            btn_text = "Update" if title == "Table Settings" else "Edit"
             self.edit_btn = tk.Button(
                 title_frame,
-                text="Edit",
+                text=btn_text,
                 state=tk.DISABLED,
                 command=lambda: on_edit(self),
                 width=10,
@@ -270,11 +300,13 @@ class TableView(tk.Frame):
                 rows = self.controller_callback(
                     filters=self.advance_filter,
                     page=self.current_page,
+                    items_per_page=self.items_per_page,
                 )
             else:
                 rows = self.controller_callback(
                     searchAll=self.search_entry.get().strip().lower(),
                     page=self.current_page,
+                    items_per_page=self.items_per_page,
                 )
 
             # ✅ rows ONLY — pagination already set by controller_callback
@@ -287,7 +319,23 @@ class TableView(tk.Frame):
 
         for idx, row in enumerate(self.filtered_data):
             # Robustly fetch column value whether row is a dict or object
-            values = [row.get(col, "") if isinstance(row, dict) else getattr(row, col, "") for col in self.columns]
+            values = []
+            for col in self.columns:
+                val = row.get(col, "") if isinstance(row, dict) else getattr(row, col, "")
+                
+                # Check for capitalization toggle in table settings
+                if self.table_settings and self.table_settings.settings_json:
+                    import json
+                    try:
+                        settings = json.loads(self.table_settings.settings_json)
+                        col_setting = next((s for s in settings if s.get('name') == col), None)
+                        if col_setting and col_setting.get('capitalize_first'):
+                            val = str(val).capitalize()
+                    except:
+                        pass
+                
+                values.append(val)
+
             tag = "evenrow" if idx % 2 == 0 else "oddrow"
             self.tree.insert("", tk.END, values=values, tags=(tag,))
 

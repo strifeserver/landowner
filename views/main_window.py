@@ -96,9 +96,26 @@ class MainWindow:
             font=("Arial", 10, "bold"),
         ).pack(pady=(10, 5))
 
-        # Container for dynamic menu items
+        # Container for dynamic menu items (Middle part)
         self.menu_container = tk.Frame(self.left_frame, bg="#e0e0e0")
         self.menu_container.pack(fill="both", expand=True)
+
+        # Footer (Logout Section)
+        self.footer_frame = tk.Frame(self.left_frame, bg="#e0e0e0", pady=20)
+        self.footer_frame.pack(side="bottom", fill="x")
+
+        # Separator line above logout
+        tk.Frame(self.footer_frame, bg="#c0c0c0", height=1).pack(fill="x", padx=15, pady=(0, 15))
+
+        self.btn_logout = tk.Button(
+            self.footer_frame,
+            text="Logout",
+            bg="#f5f5f5",
+            fg="#c0392b",
+            font=("Arial", 9, "bold"),
+            command=self._handle_logout
+        )
+        self.btn_logout.pack(padx=20, fill="x")
 
         # Right panel (content)
         self.right_panel = RightPanel(self.root, width=640)
@@ -327,3 +344,15 @@ class MainWindow:
     # --------------------------------------------------
     def on_menu_click(self, navigation, controller_name, navigation_name):
         self.right_panel.render_content(navigation, controller_name, navigation_name)
+
+    def _handle_logout(self):
+        """Clears session and restarts to Login screen."""
+        from utils.session import Session
+        from controllers.AuthController import AuthController
+        from views.login.login_view import LoginView
+        from tkinter import messagebox
+        
+        if messagebox.askyesno("Confirm", "Are you sure you want to logout?"):
+            Session.clear_session()
+            self.root.destroy()
+            LoginView(AuthController)

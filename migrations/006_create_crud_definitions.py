@@ -17,8 +17,10 @@ def migrate():
             fields_json TEXT NOT NULL,
             sort_field TEXT,
             sort_direction TEXT DEFAULT 'ASC',
-            created_at DATETIMEDEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            created_by INTEGER,
+            updated_by INTEGER
         )
     """)
 

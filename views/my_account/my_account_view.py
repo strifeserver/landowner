@@ -5,49 +5,71 @@ from controllers.MyAccountController import MyAccountController
 from PIL import Image, ImageTk
 import os
 
-class AnimatedLabel(tk.Label):
-    """A Label that can display an animated GIF."""
+class StaticImageLabel(tk.Label):
+    """A lightweight Label for displaying static images with minimal memory footprint."""
     def __init__(self, master, file_path, size=(120, 120), **kwargs):
         super().__init__(master, **kwargs)
         from PIL import Image, ImageTk
-        self.frames = []
-        self.delay = 100
+        
+        self.photo = None
+        self._pil_image = None
         
         try:
+            # Open and immediately process the image
             with Image.open(file_path) as img:
-                self.delay = img.info.get('duration', 100)
-                try:
-                    while True:
-                        frame = img.copy()
-                        frame.thumbnail(size, Image.Resampling.LANCZOS)
-                        self.frames.append(ImageTk.PhotoImage(frame))
-                        img.seek(len(self.frames))
-                except EOFError:
-                    pass
+                # Convert to RGB to avoid palette/mode issues
+                if img.mode not in ('RGB', 'RGBA'):
+                    img = img.convert('RGB')
+                
+                # For GIFs, just take the first frame
+                if hasattr(img, 'seek'):
+                    img.seek(0)
+                
+                # Create a copy and resize aggressively
+                self._pil_image = img.copy()
+                self._pil_image.thumbnail(size, Image.Resampling.LANCZOS)
+                
+                # Create PhotoImage
+                self.photo = ImageTk.PhotoImage(self._pil_image)
+                self.config(image=self.photo)
         except Exception as e:
-            # Fallback if animation fails
-            pass
-
-        self.idx = 0
-        self._after_id = None
-        if self.frames:
-            self.config(image=self.frames[0])
-            if len(self.frames) > 1:
-                self.animate()
+            # Fallback to placeholder text
+            self.config(text="Image\nPreview")
         
-        self.bind("<Destroy>", lambda e: self.stop_animation())
-
-    def animate(self):
-        if not self.winfo_exists():
-            return
-        self.idx = (self.idx + 1) % len(self.frames)
-        self.config(image=self.frames[self.idx])
-        self._after_id = self.after(self.delay, self.animate)
-
-    def stop_animation(self):
-        if self._after_id:
-            self.after_cancel(self._after_id)
-            self._after_id = None
+        self.bind("<Destroy>", lambda e: self.cleanup())
+    
+    def cleanup(self):
+        """Explicitly cleanup resources."""
+        # Clear image from label (only if widget still exists)
+        if self.winfo_exists():
+            try:
+                self.config(image='')
+            except:
+                pass
+        
+        # Delete PhotoImage
+        if self.photo:
+            try:
+                # Try to delete internal Tk image
+                if hasattr(self.photo, '_PhotoImage__photo'):
+                    self.photo._PhotoImage__photo.name = None
+                del self.photo
+            except:
+                pass
+            self.photo = None
+        
+        # Close PIL image
+        if self._pil_image:
+            try:
+                self._pil_image.close()
+                del self._pil_image
+            except:
+                pass
+            self._pil_image = None
+        
+        # Force garbage collection
+        import gc
+        gc.collect()
 
 class MyAccountView(tk.Frame):
     def __init__(self, parent):
@@ -168,10 +190,10 @@ class MyAccountView(tk.Frame):
         self.btn_save_pass.pack(anchor="w", pady=10)
 
         # ==========================================
-        # SECTION 3: Logout
+        # SECTION 3: Account Footer
         # ==========================================
         ttk.Separator(container, orient="horizontal").pack(fill="x", pady=20)
-        tk.Button(container, text="Logout", command=self._handle_logout).pack(anchor="w", pady=10)
+        tk.Label(container, text="End of Account Settings", font=("Arial", 8), bg="white", fg="#999").pack(pady=10)
 
         self.display_photo_path = None
 
@@ -210,16 +232,16 @@ class MyAccountView(tk.Frame):
             photo_path = os.path.join(base_path, "assets", "images", "placeholder_user.png")
 
         try:
-            # 1. Stop and clear existing animated photo if it exists
+            # 1. Stop and clear existing photo if it exists
             if self.anim_photo:
-                self.anim_photo.stop_animation()
+                self.anim_photo.cleanup()
                 self.anim_photo.destroy()
                 self.anim_photo = None
             
             import gc
 
-            # 2. Use AnimatedLabel for potential GIFs
-            self.anim_photo = AnimatedLabel(self.image_container, photo_path, size=(120, 120), bg="white")
+            # 2. Use StaticImageLabel for lightweight preview
+            self.anim_photo = StaticImageLabel(self.image_container, photo_path, size=(120, 120), bg="white")
             self.anim_photo.pack(fill="both", expand=True)
             
             # 3. Trigger cleanup
@@ -228,24 +250,35 @@ class MyAccountView(tk.Frame):
             pass
 
     def _change_photo(self):
+        import gc
+        
+        # Force garbage collection before opening dialog
+        gc.collect()
+        
         file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png *.jpg *.jpeg *.gif")])
+        
+        # Force cleanup after dialog closes
+        gc.collect()
+        
         if file_path:
             self.display_photo_path = file_path
             
-            # 1. Stop and clear existing animated photo
+            # 1. Clear existing photo
             if self.anim_photo:
-                self.anim_photo.stop_animation()
+                self.anim_photo.cleanup()
                 self.anim_photo.destroy()
                 self.anim_photo = None
-            
-            import gc
+                
+                # Process destruction
+                self.update_idletasks()
+                gc.collect()
 
-            # 2. Load and preview the new photo safely
+            # 2. Load lightweight preview
             try:
-                self.anim_photo = AnimatedLabel(self.image_container, file_path, size=(120, 120), bg="white")
+                self.anim_photo = StaticImageLabel(self.image_container, file_path, size=(120, 120), bg="white")
                 self.anim_photo.pack(fill="both", expand=True)
                 
-                # 3. Trigger cleanup
+                # 3. Cleanup
                 gc.collect()
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load image: {e}")

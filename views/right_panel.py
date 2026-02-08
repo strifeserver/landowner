@@ -115,7 +115,8 @@ class RightPanel(tk.Frame):
                     data=data,
                     controller_callback=None,  # Added later
                     title=navigation_name,
-                    nav_id=nav_item.id if nav_item else None # Pass ID
+                    nav_id=nav_item.id if nav_item else None, # Pass ID
+                    table_name=model_class.table_name if model_class and hasattr(model_class, "table_name") else None
                 )
                 table.pack(fill=tk.BOTH, expand=True)
                 table.controller_class = controller_class
@@ -135,7 +136,7 @@ class RightPanel(tk.Frame):
                         result = controller_class.index(
                             filters=filters,
                             pagination=True,
-                            items_per_page=10,
+                            items_per_page=items_per_page,
                             page=page,
                             searchAll=searchAll,
                         )

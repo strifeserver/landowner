@@ -10,7 +10,7 @@ class Setting(BaseModel):
     
     db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'data.db')
     table_name = "settings"
-    fields = ['id', 'setting_name', 'setting_value', 'setting_options', 'created_at', 'updated_at']
+    fields = ['id', 'setting_name', 'setting_value', 'setting_options', 'created_at', 'updated_at', 'created_by', 'updated_by']
 
     # Add field_definitions to work with BaseService
     field_definitions = {
@@ -21,12 +21,16 @@ class Setting(BaseModel):
                 "is_hidden": True,
             },
         "created_at": {},
-        "updated_at": {}
+        "updated_at": {},
+        "created_by_name": {"alias": "Created By", "editable": False},
+        "updated_by_name": {"alias": "Updated By", "editable": False},
     }
 
     def __init__(self, **kwargs):
         for field in self.fields:
             setattr(self, field, kwargs.get(field))
+        self.created_by_name = kwargs.get("created_by_name")
+        self.updated_by_name = kwargs.get("updated_by_name")
 
     @classmethod
     def index(
@@ -49,10 +53,20 @@ class Setting(BaseModel):
         """
         # Default SELECT query if no custom_query
         if not custom_query:
-            prefix = f"{table_alias}." if table_alias else ""
-            fields_to_select = [f"{prefix}{f}" for f in cls.fields]
+            table_alias = table_alias or "t"
+            prefix = f"{table_alias}."
+            fields_to_select = [f'{prefix}"{f}"' for f in cls.fields]
             select_clause = ", ".join(fields_to_select)
-            custom_query = f"SELECT {select_clause} FROM {cls.table_name} {table_alias or ''}"
+            
+            custom_query = f"""
+                SELECT {select_clause},
+                       COALESCE(u1.name, u1.username) as created_by_name,
+                       COALESCE(u2.name, u2.username) as updated_by_name
+                FROM {cls.table_name} {table_alias}
+                LEFT JOIN users u1 ON {table_alias}.created_by = u1.id
+                LEFT JOIN users u2 ON {table_alias}.updated_by = u2.id
+            """
+            custom_fields = cls.fields + ["created_by_name", "updated_by_name"]
 
         if not custom_fields:
             custom_fields = cls.fields
@@ -74,8 +88,31 @@ class Setting(BaseModel):
         )
 
     @classmethod
-    def edit(cls, id):
-        return super().edit_sqlite(DB_PATH, cls.table_name, cls.fields, row_id=id)
+    def edit(cls, id, **kwargs):
+        table_alias = "t"
+        prefix = f"{table_alias}."
+        fields_to_select = [f'{prefix}"{f}"' for f in cls.fields]
+        select_clause = ", ".join(fields_to_select)
+        
+        custom_query = f"""
+            SELECT {select_clause},
+                   COALESCE(u1.name, u1.username) as created_by_name,
+                   COALESCE(u2.name, u2.username) as updated_by_name
+            FROM {cls.table_name} {table_alias}
+            LEFT JOIN users u1 ON {table_alias}.created_by = u1.id
+            LEFT JOIN users u2 ON {table_alias}.updated_by = u2.id
+        """
+        custom_fields = cls.fields + ["created_by_name", "updated_by_name"]
+        
+        return super().edit_sqlite(
+            DB_PATH, 
+            cls.table_name, 
+            cls.fields, 
+            row_id=id, 
+            custom_query=custom_query, 
+            custom_fields=custom_fields,
+            table_alias=table_alias
+        )
 
     @classmethod
     def store(cls, **kwargs):

@@ -4,6 +4,7 @@ from services.AccessLevelService import AccessLevelService
 from utils.debug import print_r
 
 class AccessLevelController:
+    model = AccessLevel
     
     @staticmethod
     def index(filters=None, pagination=False, items_per_page=5, page=1, searchAll=None):

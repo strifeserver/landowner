@@ -3,6 +3,7 @@ import os
 import json
 import sqlite3
 from models.CrudBuilder import CrudBuilder
+from models.navigation import Navigation
 from services.BaseService import BaseService
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'data.db')
@@ -36,6 +37,9 @@ class CrudBuilderService(BaseService):
 
         # 2. Generate Files
         try:
+            # Normalize dropdown values to lowercase
+            fields_json = self._normalize_fields(fields_json)
+
             self._generate_model(name, table_name, fields_json, sort_field, sort_direction)
             self._generate_service(name)
             self._generate_controller(name)
@@ -62,6 +66,9 @@ class CrudBuilderService(BaseService):
         self.model.update(id, name=name, fields_json=fields_json, sort_field=sort_field, sort_direction=sort_direction)
 
         try:
+            # Normalize dropdown values to lowercase
+            fields_json = self._normalize_fields(fields_json)
+
             # Sync database schema first
             self._sync_table_schema(table_name, fields_json)
             
@@ -359,21 +366,45 @@ if __name__ == "__main__":
         
         # Get max order
         cursor.execute("SELECT MAX(navigation_order) FROM navigations")
-        max_order = cursor.fetchone()[0] or 0
-        
-        cursor.execute("""
-            INSERT INTO navigations (
-                menu_name, navigation_order, navigation, navigation_type,
-                controller, status, created_at, updated_at
-            ) VALUES (?, ?, ?, 'menu', ?, 'active', DATETIME('now'), DATETIME('now'))
-        """, (name, max_order + 1, table_name, f"{class_name}Controller"))
-        
-        conn.commit()
+        row = cursor.fetchone()
+        max_order = row[0] if row and row[0] is not None else 0
         conn.close()
+
+        # Use Navigation model store() to leverage auto-created_by logic
+        try:
+            Navigation.store(
+                menu_name=name,
+                navigation_order=max_order + 1,
+                navigation=table_name,
+                navigation_type="menu",
+                controller=f"{class_name}Controller",
+                status="active"
+            )
+        except Exception as e:
+            print(f"Error adding navigation: {e}")
         
         # Notify sidebar to reload
         from utils.session import Session
         Session.notify_observers()
+
+    def _normalize_fields(self, fields_json):
+        """Helper to ensure dropdown values are automatically lowercased."""
+        if isinstance(fields_json, str):
+            try:
+                fields_json = json.loads(fields_json)
+            except:
+                return fields_json
+        
+        if not isinstance(fields_json, list):
+            return fields_json
+
+        for field in fields_json:
+            if field.get("type") == "dropdown":
+                options = field.get("options")
+                if isinstance(options, list):
+                    field["options"] = [str(opt).lower() for opt in options]
+        
+        return fields_json
 
     def _sync_table_schema(self, table_name, fields_json):
         """Adds missing columns to the database table."""

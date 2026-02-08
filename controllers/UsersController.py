@@ -2,6 +2,7 @@ from models.user import User
 from app_requests.UsersRequest import UsersRequest
 from services.UsersService import UsersService
 from utils.debug import print_r
+import bcrypt
 
 class UsersController:
     
@@ -43,8 +44,14 @@ class UsersController:
         if validation is not True:
             return {"success": False, "errors": validation}
 
+        # Hash password before storing
+        validated_data = request.get_validated_data()
+        if 'password' in validated_data and validated_data['password']:
+            hashed = bcrypt.hashpw(validated_data['password'].encode('utf-8'), bcrypt.gensalt())
+            validated_data['password'] = hashed.decode('utf-8')
+
         service = UsersService()        
-        result = service.store(request.get_validated_data())
+        result = service.store(validated_data)
         return {"success": True, "message": "User created successfully"} if result else {"success": False, "message": "Failed to create user"}
 
     @staticmethod

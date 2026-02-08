@@ -3,6 +3,7 @@ from utils.session import Session
 from models.user import User
 import os
 import shutil
+import bcrypt
 
 class MyAccountController:
     @staticmethod
@@ -23,7 +24,19 @@ class MyAccountController:
         # Validate current password strictly for password changes ONLY
         if "new_password" in data:
             current_pw = data.get("current_password")
-            if not current_pw or user.password != current_pw:
+            stored_pw = user.password
+            
+            # Verify current password (support both bcrypt and legacy plaintext)
+            password_valid = False
+            if stored_pw and (stored_pw.startswith('$2b$') or stored_pw.startswith('$2a$')):
+                try:
+                    password_valid = bcrypt.checkpw(current_pw.encode('utf-8'), stored_pw.encode('utf-8'))
+                except Exception:
+                    password_valid = False
+            else:
+                password_valid = (stored_pw == current_pw)
+            
+            if not password_valid:
                 return {"success": False, "message": "Incorrect current password"}
 
         update_data = {}
@@ -32,7 +45,9 @@ class MyAccountController:
         if "email" in data:
             update_data["email"] = data["email"]
         if "new_password" in data and data["new_password"]:
-            update_data["password"] = data["new_password"]
+            # Hash the new password
+            hashed = bcrypt.hashpw(data["new_password"].encode('utf-8'), bcrypt.gensalt())
+            update_data["password"] = hashed.decode('utf-8')
         
         # Handle Photo Upload
         if "display_photo_path" in data and data["display_photo_path"]:

@@ -16,7 +16,7 @@ def open_form_popup(title, field_definitions, on_submit, initial_data=None):
     # Filter visible fields first to determine layout
     visible_fields = []
     for field_name, config in field_definitions.items():
-        if field_name in ("id", "created_at", "updated_at"):
+        if field_name in ("id", "created_at", "updated_at", "created_by", "updated_by"):
             continue
         if config.get("is_hidden") is True:
             continue

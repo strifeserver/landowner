@@ -1,0 +1,694 @@
+================================================================================
+                    LANDOWNER PROJECT DOCUMENTATION
+================================================================================
+Generated: 2026-02-08
+Version: 1.0
+Framework: Python + Tkinter + SQLite
+Architecture: MVC (Model-View-Controller)
+
+================================================================================
+                         AI ASSISTANT PROMPT
+================================================================================
+
+You are assisting with the "Landowner" project - a Python-based desktop 
+application using Tkinter for the UI and SQLite for data persistence. This is 
+a modular, extensible system with a dynamic CRUD builder that follows Laravel-
+inspired conventions.
+
+KEY ARCHITECTURAL PRINCIPLES:
+1. **MVC Pattern**: Strict separation between Models, Views, and Controllers
+2. **Audit Trail**: ALL tables MUST include: id, created_by, created_at, 
+   updated_by, updated_at
+3. **Auto-Population**: BaseModel automatically fills audit fields using 
+   Session.get_user()
+4. **JOIN Resolution**: Models auto-resolve created_by/updated_by to usernames 
+   via LEFT JOIN
+5. **Dynamic CRUD**: CrudBuilderService generates complete modules (Model, 
+   Service, Controller, Migration, Navigation)
+
+DATABASE SCHEMA REQUIREMENTS:
+- Every table MUST have: id (PK), created_by (FK→users), created_at, 
+  updated_by (FK→users), updated_at
+- Format: YYYY-MM-DD HH:mm:ss (24-hour)
+- created_by/updated_by: Auto-filled from session on INSERT/UPDATE
+- Models should include created_by_name/updated_by_name via LEFT JOIN for 
+  display
+
+CURRENT TABLES:
+- users: User accounts with access levels
+- access_levels: Role-based permissions (view, add, edit, delete, export, 
+  import)
+- navigations: Dynamic menu system with parent-child relationships
+- settings: Application configuration key-value pairs
+- crud_definitions: Metadata for dynamically generated modules
+
+When suggesting improvements or new features, ensure they:
+✓ Follow the existing audit field pattern
+✓ Use BaseModel for CRUD operations
+✓ Include proper LEFT JOINs for user resolution
+✓ Maintain MVC separation
+✓ Consider the dynamic CRUD builder for new modules
+
+================================================================================
+                         PROJECT OVERVIEW
+================================================================================
+
+PROJECT NAME: Landowner
+PURPOSE: A modular desktop application framework for managing business data 
+         with role-based access control, dynamic CRUD generation, and 
+         comprehensive audit trails.
+
+TECHNOLOGY STACK:
+- Language: Python 3.x
+- GUI Framework: Tkinter (with ttk for modern widgets)
+- Database: SQLite 3
+- Architecture: Model-View-Controller (MVC)
+- Session Management: Custom session handler with observer pattern
+
+KEY FEATURES:
+1. User Authentication & Authorization
+2. Role-Based Access Control (RBAC)
+3. Dynamic Navigation System
+4. CRUD Builder (Auto-generates modules)
+5. Audit Trail System (tracks all changes)
+6. Advanced Filtering & Search
+7. Pagination Support
+8. Export/Import Capabilities
+
+================================================================================
+                      DIRECTORY STRUCTURE
+================================================================================
+
+landowner/
+│
+├── main.py                    # Application entry point
+├── migrate.py                 # Database migration runner
+├── run_migrations.py          # Migration execution script
+│
+├── models/                    # Data models (ORM-like)
+│   ├── base_model.py         # Base class with CRUD operations
+│   ├── user.py               # User model
+│   ├── access_level.py       # Access level/role model
+│   ├── navigation.py         # Navigation menu model
+│   ├── Setting.py            # Application settings model
+│   └── CrudBuilder.py        # CRUD definition model
+│
+├── controllers/               # Business logic layer
+│   ├── AuthController.py     # Authentication logic
+│   ├── UsersController.py    # User management
+│   ├── AccessLevelController.py
+│   ├── NavigationsController.py
+│   ├── SettingsController.py
+│   ├── CrudBuilderController.py
+│   ├── MyAccountController.py
+│   └── DashboardsController.py
+│
+├── services/                  # Service layer (business operations)
+│   ├── BaseService.py        # Base service class
+│   ├── AuthService.py        # Authentication service
+│   ├── UsersService.py
+│   ├── AccessLevelService.py
+│   ├── NavigationsService.py
+│   ├── SettingsService.py
+│   └── CrudBuilderService.py # Dynamic module generator
+│
+├── views/                     # UI components (Tkinter)
+│   ├── main_window.py        # Main application window
+│   ├── right_panel.py        # Content display panel
+│   ├── login/                # Login screen
+│   ├── table/                # Generic table view components
+│   ├── users/                # User-specific views
+│   ├── access_level/         # Access level views
+│   ├── crud_builder/         # CRUD builder interface
+│   └── my_account/           # User profile views
+│
+├── migrations/                # Database migrations
+│   ├── 000_init_db.py        # Initial schema
+│   ├── 001_seed_users.py     # User seed data
+│   ├── 002_seed_settings.py
+│   ├── 003_seed_navigations.py
+│   ├── 004_seed_access_levels.py
+│   ├── 005_add_permissions_to_access_levels.py
+│   ├── 006_create_crud_definitions.py
+│   ├── 007_update_users_table.py
+│   └── 008_add_audit_fields.py  # Audit field standardization
+│
+├── utils/                     # Utility modules
+│   ├── session.py            # Session management
+│   ├── debug.py              # Debug utilities
+│   └── [other utilities]
+│
+├── data/                      # Database storage
+│   └── data.db               # SQLite database file
+│
+└── assets/                    # Static resources (images, icons)
+
+================================================================================
+                      DATABASE SCHEMA
+================================================================================
+
+------------------------------------------------------------------------------
+TABLE: users
+------------------------------------------------------------------------------
+PURPOSE: Stores user accounts with authentication and profile information
+
+COLUMNS:
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT
+  customId            TEXT                 # Employee/Custom ID (e.g., "000001")
+  name                TEXT                 # Full name
+  username            TEXT                 # Login username
+  password            TEXT                 # Password (plaintext in dev, should be hashed)
+  email               TEXT                 # Email address
+  display_photo       TEXT                 # Photo filename
+  access_level        INTEGER              # FK → access_levels.id
+  account_status      TEXT                 # 'active', 'inactive', 'pending'
+  is_locked           BOOLEAN              # Account lock status (0/1)
+  temporary_password  TEXT                 # Temp password for reset
+  created_at          DATETIME             # Auto-filled on INSERT
+  updated_at          DATETIME             # Auto-filled on UPDATE
+  created_by          INTEGER              # FK → users.id
+  updated_by          INTEGER              # FK → users.id
+
+RELATIONSHIPS:
+  - access_level → access_levels.id (Many-to-One)
+  - created_by → users.id (Self-referencing)
+  - updated_by → users.id (Self-referencing)
+
+SEED DATA:
+  - admin (ID: 1, Password: admin)
+  - jean (ID: 2, Password: mypassword)
+  - staff (ID: 3, Password: staff)
+  - jane_doe (ID: 4, Password: password123)
+
+------------------------------------------------------------------------------
+TABLE: access_levels
+------------------------------------------------------------------------------
+PURPOSE: Defines user roles and their permissions
+
+COLUMNS:
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT
+  access_level_name   TEXT                 # Role name (e.g., "Administrator")
+  access_level_code   TEXT                 # Short code (e.g., "ADMIN")
+  view                TEXT                 # CSV of navigation IDs with view permission
+  add                 TEXT                 # CSV of navigation IDs with add permission
+  edit                TEXT                 # CSV of navigation IDs with edit permission
+  delete              TEXT                 # CSV of navigation IDs with delete permission
+  export              TEXT                 # CSV of navigation IDs with export permission
+  import              TEXT                 # CSV of navigation IDs with import permission
+  created_at          DATETIME
+  updated_at          DATETIME
+  created_by          INTEGER              # FK → users.id
+  updated_by          INTEGER              # FK → users.id
+
+PERMISSION LOGIC:
+  - Permissions stored as comma-separated navigation IDs
+  - Example: view = "1,2,3,5" means can view navigations 1, 2, 3, and 5
+  - Empty = no permission
+
+------------------------------------------------------------------------------
+TABLE: navigations
+------------------------------------------------------------------------------
+PURPOSE: Dynamic menu system with hierarchical structure
+
+COLUMNS:
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT
+  menu_name           TEXT                 # Display name
+  navigation          TEXT                 # URL slug/identifier
+  controller          TEXT                 # Controller class name
+  navigation_type     TEXT                 # 'menu', 'parent_menu', 'child_menu', 'menu_header'
+  navigation_order    INTEGER              # Display order (sortable)
+  parent_id           INTEGER              # FK → navigations.id (for child menus)
+  icon                TEXT                 # Icon identifier
+  tooltip             TEXT                 # Hover tooltip
+  is_hidden           INTEGER              # Visibility flag (0/1)
+  status              TEXT                 # 'active', 'inactive'
+  datatable_settings  TEXT                 # JSON config for table views
+  created_at          DATETIME
+  updated_at          DATETIME
+  created_by          INTEGER              # FK → users.id
+  updated_by          INTEGER              # FK → users.id
+
+FEATURES:
+  - Supports parent-child relationships (nested menus)
+  - Move Up/Down functionality for reordering
+  - Dynamic visibility control
+
+------------------------------------------------------------------------------
+TABLE: settings
+------------------------------------------------------------------------------
+PURPOSE: Application-wide configuration key-value store
+
+COLUMNS:
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT
+  setting_name        TEXT                 # Unique setting key
+  setting_value       TEXT                 # Setting value
+  setting_options     TEXT                 # JSON array of allowed values (for dropdowns)
+  created_at          DATETIME
+  updated_at          DATETIME
+  created_by          INTEGER              # FK → users.id
+  updated_by          INTEGER              # FK → users.id
+
+EXAMPLES:
+  - copyright: "© 2026 Your Company"
+  - app_name: "Landowner System"
+  - theme: "light" (options: ["light", "dark"])
+
+------------------------------------------------------------------------------
+TABLE: crud_definitions
+------------------------------------------------------------------------------
+PURPOSE: Metadata for dynamically generated CRUD modules
+
+COLUMNS:
+  id                  INTEGER PRIMARY KEY AUTOINCREMENT
+  name                TEXT                 # Module display name
+  table_name          TEXT                 # Database table name
+  fields_json         TEXT                 # JSON array of field definitions
+  sort_field          TEXT                 # Default sort column
+  sort_direction      TEXT                 # 'ASC' or 'DESC'
+  created_at          DATETIME
+  updated_at          DATETIME
+  created_by          INTEGER              # FK → users.id
+  updated_by          INTEGER              # FK → users.id
+
+FIELDS_JSON STRUCTURE:
+  [
+    {
+      "name": "field_name",
+      "alias": "Display Label",
+      "type": "text|number|dropdown|date",
+      "visible": true,
+      "editable": true,
+      "options": ["option1", "option2"]  // for dropdowns
+    }
+  ]
+
+GENERATED FILES:
+  - models/{ModuleName}.py
+  - services/{ModuleName}Service.py
+  - controllers/{ModuleName}Controller.py
+  - migrations/{timestamp}_create_{table_name}_table.py
+  - Auto-adds navigation entry
+
+================================================================================
+                      CORE ARCHITECTURE
+================================================================================
+
+------------------------------------------------------------------------------
+1. BASE MODEL (models/base_model.py)
+------------------------------------------------------------------------------
+
+RESPONSIBILITIES:
+  - Generic CRUD operations for all models
+  - Automatic audit field population
+  - JOIN support with table aliasing
+  - Pagination and filtering
+  - Search functionality
+
+KEY METHODS:
+  
+  index_sqlite(db_path, target_table, fields, filters, search, pagination, 
+               items_per_page, page, sort_by, sort_order, custom_query, 
+               table_alias, debug)
+    → Returns list of model instances or paginated dict
+    → Supports custom SELECT queries with JOINs
+    → Auto-prefixes ambiguous fields with table alias
+  
+  edit_sqlite(db_path, target_table, fields, row_id, filters, custom_query, 
+              custom_fields, table_alias, debug)
+    → Returns single model instance
+    → Used for fetching record for editing
+  
+  store_sqlite(db_path, target_table, **kwargs)
+    → Inserts new record
+    → Auto-fills: created_at, updated_at, created_by, updated_by
+    → Returns model instance with new ID
+  
+  update_sqlite(db_path, target_table, row_id, **kwargs)
+    → Updates existing record
+    → Auto-fills: updated_at, updated_by
+    → Returns True on success
+  
+  destroy_sqlite(db_path, target_table, row_id)
+    → Deletes record by ID
+    → Returns True on success
+
+AUDIT FIELD AUTO-POPULATION:
+  - On INSERT: created_at, updated_at, created_by, updated_by
+  - On UPDATE: updated_at, updated_by
+  - Uses Session.get_user() to get current user ID
+  - Format: YYYY-MM-DD HH:mm:ss
+
+------------------------------------------------------------------------------
+2. SESSION MANAGEMENT (utils/session.py)
+------------------------------------------------------------------------------
+
+FEATURES:
+  - Singleton pattern for global state
+  - Observer pattern for UI updates
+  - User authentication state
+  - Navigation refresh notifications
+
+KEY METHODS:
+  Session.set_user(user_obj)      # Store logged-in user
+  Session.get_user()              # Retrieve current user
+  Session.clear_user()            # Logout
+  Session.notify_observers()      # Trigger UI refresh
+
+USAGE IN MODELS:
+  from utils.session import Session
+  user = Session.get_user()
+  if user:
+      kwargs["created_by"] = user.id
+
+------------------------------------------------------------------------------
+3. CRUD BUILDER SERVICE (services/CrudBuilderService.py)
+------------------------------------------------------------------------------
+
+PURPOSE: Dynamically generate complete modules from field definitions
+
+WORKFLOW:
+  1. User defines module in CRUD Builder UI
+  2. Service generates:
+     - Model with field definitions and JOIN logic
+     - Service class extending BaseService
+     - Controller with index/create/store/edit/update/destroy
+     - Migration with CREATE TABLE statement
+     - Navigation menu entry
+  3. Migration runs automatically
+  4. Module is immediately available in navigation
+
+GENERATED MODEL FEATURES:
+  - Includes all audit fields (created_by, updated_by, etc.)
+  - Auto-includes LEFT JOIN to users table
+  - Resolves created_by_name and updated_by_name
+  - Follows same pattern as core models
+
+SCHEMA SYNC:
+  - _sync_table_schema() method adds missing columns
+  - Ensures existing tables get audit fields if missing
+  - Non-destructive (only adds, never removes)
+
+------------------------------------------------------------------------------
+4. TABLE VIEW (views/table/table_view.py)
+------------------------------------------------------------------------------
+
+FEATURES:
+  - Generic table display for any model
+  - Pagination controls
+  - Search across all visible fields
+  - Advanced filtering (per-column filters with date ranges)
+  - Sorting by column
+  - Action buttons (Add, Edit, Delete, Export, Import)
+  - Permission-based button visibility
+
+ADVANCED FILTERS:
+  - Text fields: LIKE search (case-insensitive)
+  - Date fields: _from and _to range filters
+  - Excludes internal fields: id, created_at, updated_at, deleted_at, 
+    deleted_by, password
+
+PAGINATION:
+  - Configurable items per page
+  - Page navigation (First, Previous, Next, Last)
+  - Total records and page count display
+
+------------------------------------------------------------------------------
+5. AUTHENTICATION FLOW
+------------------------------------------------------------------------------
+
+LOGIN PROCESS:
+  1. User enters username/password in LoginView
+  2. AuthController.login() called
+  3. AuthService.authenticate() verifies credentials
+  4. On success:
+     - Session.set_user(user_obj)
+     - LoginView closes
+     - MainWindow opens with Dashboard
+  5. On failure:
+     - Error message displayed
+     - Login form remains open
+
+AUTHORIZATION:
+  - Access levels define permissions per navigation
+  - Controllers check permissions before operations
+  - UI buttons hidden if user lacks permission
+
+LOGOUT:
+  - Session.clear_user()
+  - MainWindow closes
+  - LoginView reopens
+
+================================================================================
+                      CODING CONVENTIONS
+================================================================================
+
+MODEL STRUCTURE:
+  class MyModel(BaseModel):
+      table_name = "my_table"
+      fields = ['id', 'field1', 'field2', 'created_at', 'updated_at', 
+                'created_by', 'updated_by']
+      
+      field_definitions = {
+          "id": {"alias": "ID", "is_hidden": False, "order": 0, 
+                 "editable": False},
+          "field1": {"alias": "Field 1", "order": 1, "editable": True},
+          # ... more fields ...
+          "created_by_name": {"alias": "Created By", "order": 99, 
+                              "editable": False},
+          "updated_by_name": {"alias": "Updated By", "order": 100, 
+                               "editable": False}
+      }
+      
+      def __init__(self, **kwargs):
+          for field in self.fields:
+              setattr(self, field, kwargs.get(field))
+          self.created_by_name = kwargs.get("created_by_name")
+          self.updated_by_name = kwargs.get("updated_by_name")
+      
+      @classmethod
+      def index(cls, filters=None, search=None, pagination=False, 
+                items_per_page=10, page=1, **kwargs):
+          # Build JOIN query
+          join_query = f"""
+              SELECT t.*, 
+                     COALESCE(u1.name, u1.username) as created_by_name,
+                     COALESCE(u2.name, u2.username) as updated_by_name
+              FROM {cls.table_name} t
+              LEFT JOIN users u1 ON t.created_by = u1.id
+              LEFT JOIN users u2 ON t.updated_by = u2.id
+          """
+          custom_fields = cls.fields + ["created_by_name", "updated_by_name"]
+          
+          return super().index_sqlite(
+              DB_PATH, cls.table_name, cls.fields,
+              filters=filters, search=search, pagination=pagination,
+              items_per_page=items_per_page, page=page,
+              custom_query=join_query, custom_fields=custom_fields,
+              table_alias="t", **kwargs
+          )
+
+CONTROLLER STRUCTURE:
+  class MyController:
+      model = MyModel
+      
+      @staticmethod
+      def index(filters=None, pagination=False, items_per_page=10, 
+                page=1, searchAll=None):
+          service = MyService()
+          return service.index(filters=filters or {}, 
+                               pagination=pagination,
+                               items_per_page=items_per_page, 
+                               page=page, search=searchAll)
+      
+      @staticmethod
+      def create():
+          return {
+              "view_type": "generic",
+              "field_definitions": MyModel.get_dynamic_field_definitions()
+          }
+      
+      @staticmethod
+      def store(data):
+          service = MyService()
+          result = service.store(data)
+          return {"success": True, "message": "Created successfully"} \
+                 if result else {"success": False, "message": "Failed"}
+
+MIGRATION STRUCTURE:
+  import sqlite3
+  import os
+  
+  DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "data.db")
+  
+  def migrate():
+      conn = sqlite3.connect(DB_PATH)
+      cursor = conn.cursor()
+      
+      cursor.execute("""
+          CREATE TABLE IF NOT EXISTS my_table (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              field1 TEXT,
+              field2 INTEGER,
+              created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+              created_by INTEGER,
+              updated_by INTEGER
+          )
+      """)
+      
+      conn.commit()
+      conn.close()
+      print("Migration complete.")
+  
+  if __name__ == "__main__":
+      migrate()
+
+================================================================================
+                      COMMON OPERATIONS
+================================================================================
+
+RUNNING MIGRATIONS:
+  python run_migrations.py
+
+STARTING APPLICATION:
+  python main.py
+
+CREATING NEW MODULE VIA CRUD BUILDER:
+  1. Login as admin
+  2. Navigate to "CRUD Builder"
+  3. Click "Add New"
+  4. Define fields:
+     - Field Name (database column)
+     - Alias (display label)
+     - Type (text, number, dropdown, date)
+     - Visible (show in table)
+     - Editable (allow editing)
+  5. Click "Save"
+  6. Module auto-generates and appears in navigation
+
+ADDING NAVIGATION MANUALLY:
+  1. Navigate to "Navigations"
+  2. Click "Add New"
+  3. Fill in:
+     - Menu Name
+     - Navigation (slug)
+     - Controller (class name)
+     - Navigation Type (menu/parent_menu/child_menu/menu_header)
+     - Navigation Order (sort position)
+     - Parent ID (if child menu)
+  4. Save
+
+MANAGING PERMISSIONS:
+  1. Navigate to "Access Levels"
+  2. Edit desired role
+  3. Check permissions for each navigation:
+     - View, Add, Edit, Delete, Export, Import
+  4. Save
+  5. Users with that access level inherit permissions
+
+================================================================================
+                      TROUBLESHOOTING
+================================================================================
+
+ISSUE: "no such column u.created_by"
+SOLUTION: Run migration 008_add_audit_fields.py to add missing columns
+
+ISSUE: Login fails with valid credentials
+SOLUTION: Check user.is_locked status and account_status
+
+ISSUE: Navigation not appearing
+SOLUTION: Check navigation.status = 'active' and is_hidden = 0
+
+ISSUE: Permission denied on action
+SOLUTION: Verify access_level permissions include the navigation ID
+
+ISSUE: CRUD Builder module not working
+SOLUTION: Ensure migration ran successfully and navigation was created
+
+ISSUE: Audit fields showing NULL
+SOLUTION: Ensure user is logged in (Session.get_user() returns user)
+
+================================================================================
+                      FUTURE ENHANCEMENTS
+================================================================================
+
+SUGGESTED IMPROVEMENTS:
+1. Password hashing (bcrypt/argon2)
+2. Soft deletes (deleted_at, deleted_by columns)
+3. Activity log table (track all CRUD operations)
+4. Email notifications
+5. File upload handling
+6. Report generation (PDF/Excel)
+7. Multi-language support
+8. Dark mode theme
+9. API endpoints (REST/GraphQL)
+10. Real-time updates (WebSocket)
+11. Backup/restore functionality
+12. Data validation framework
+13. Custom field types (rich text, file picker, color picker)
+14. Dashboard widgets
+15. Scheduled tasks/cron jobs
+
+SECURITY ENHANCEMENTS:
+- Password complexity requirements
+- Session timeout
+- CSRF protection
+- SQL injection prevention (use parameterized queries)
+- XSS prevention
+- Rate limiting on login attempts
+- Two-factor authentication (2FA)
+- Audit log for security events
+
+PERFORMANCE OPTIMIZATIONS:
+- Database indexing on frequently queried columns
+- Query result caching
+- Lazy loading for large datasets
+- Connection pooling
+- Async operations for long-running tasks
+
+================================================================================
+                      DEPENDENCIES
+================================================================================
+
+PYTHON STANDARD LIBRARY:
+- tkinter (GUI)
+- sqlite3 (Database)
+- json (Data serialization)
+- os (File operations)
+- datetime (Timestamps)
+- logging (Error tracking)
+- traceback (Error details)
+
+EXTERNAL LIBRARIES:
+- None (pure Python + stdlib)
+
+PYTHON VERSION:
+- Minimum: Python 3.7+
+- Recommended: Python 3.10+
+
+================================================================================
+                      LICENSE & CREDITS
+================================================================================
+
+PROJECT: Landowner
+AUTHOR: [Your Name/Organization]
+LICENSE: [Specify license - MIT, GPL, Proprietary, etc.]
+YEAR: 2026
+
+ACKNOWLEDGMENTS:
+- Inspired by Laravel framework conventions
+- MVC pattern from enterprise software design
+- Tkinter community for UI patterns
+
+================================================================================
+                      CONTACT & SUPPORT
+================================================================================
+
+For questions, suggestions, or contributions:
+- Email: [your-email@example.com]
+- GitHub: [repository-url]
+- Documentation: [docs-url]
+
+================================================================================
+                      END OF DOCUMENTATION
+================================================================================

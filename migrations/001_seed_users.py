@@ -24,6 +24,8 @@ def migrate():
             "temporary_password": None,
             "created_at": "2025-06-08 13:52:15",
             "updated_at": "2025-06-08 13:52:15",
+            "created_by": 1,
+            "updated_by": 1,
         },
         {
             "customId": "000002",
@@ -38,6 +40,8 @@ def migrate():
             "temporary_password": None,
             "created_at": "2025-06-08 13:52:15",
             "updated_at": "2025-06-08 13:52:15",
+            "created_by": 1,
+            "updated_by": 1,
         },
         {
             "customId": "000003",
@@ -52,6 +56,8 @@ def migrate():
             "temporary_password": None,
             "created_at": "2025-06-08 13:52:15",
             "updated_at": "2025-06-08 13:52:15",
+            "created_by": 1,
+            "updated_by": 1,
         },
         {
             "customId": "000004",
@@ -66,6 +72,8 @@ def migrate():
             "temporary_password": None,
             "created_at": "2025-06-08 13:55:00",
             "updated_at": "2025-06-08 13:55:00",
+            "created_by": 1,
+            "updated_by": 1,
         },
     ]
 
@@ -75,8 +83,8 @@ def migrate():
             INSERT OR REPLACE INTO users (
                 customId, name, username, password, email, display_photo, access_level,
                 account_status, is_locked, temporary_password,
-                created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                created_at, updated_at, created_by, updated_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user["customId"],
@@ -91,6 +99,8 @@ def migrate():
                 user["temporary_password"],
                 user["created_at"],
                 user["updated_at"],
+                user.get("created_by"),
+                user.get("updated_by"),
             ),
         )
 
