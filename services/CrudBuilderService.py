@@ -45,6 +45,7 @@ class CrudBuilderService(BaseService):
             self._generate_controller(name)
             self._generate_migration(name, table_name, fields_json)
             self._add_navigation(name, table_name)
+            self._sync_table_settings(name, table_name, fields_json)
             
             return {"success": True, "builder_id": builder_record.id}
         except Exception as e:
@@ -75,6 +76,7 @@ class CrudBuilderService(BaseService):
             self._generate_model(name, table_name, fields_json, sort_field, sort_direction)
             self._generate_service(name)
             self._generate_controller(name)
+            self._sync_table_settings(name, table_name, fields_json)
             
             return {"success": True}
         except Exception as e:
@@ -92,7 +94,10 @@ class CrudBuilderService(BaseService):
             cursor = conn.cursor()
             cursor.execute("DELETE FROM navigations WHERE navigation = ?", (table_name,))
             
-            # 2. Drop the table (optional safety: could be skipped, but user requested)
+            # 2. Delete table settings
+            self._delete_table_settings(table_name)
+            
+            # 3. Drop the table (optional safety: could be skipped, but user requested)
             try:
                 cursor.execute(f"DROP TABLE IF EXISTS {table_name}")
             except Exception as e:
@@ -402,7 +407,13 @@ if __name__ == "__main__":
             if field.get("type") == "dropdown":
                 options = field.get("options")
                 if isinstance(options, list):
-                    field["options"] = [str(opt).lower() for opt in options]
+                    normalized_options = []
+                    for opt in options:
+                        if isinstance(opt, dict):
+                            normalized_options.append(opt)
+                        else:
+                            normalized_options.append(str(opt).lower())
+                    field["options"] = normalized_options
         
         return fields_json
 
@@ -434,5 +445,60 @@ if __name__ == "__main__":
             if col not in existing_cols:
                 cursor.execute(f"ALTER TABLE {table_name} ADD COLUMN {col} {col_type}")
                 
+        conn.commit()
+        conn.close()
+
+    def _sync_table_settings(self, name, table_name, fields_json):
+        """Creates or updates table settings for the module."""
+        from models.table_setting import TableSetting
+        import json
+
+        fields_list = json.loads(fields_json) if isinstance(fields_json, str) else fields_json
+        
+        # Build initial settings_json
+        settings = []
+        # Add ID first
+        settings.append({
+            "name": "id",
+            "alias": "ID",
+            "visible": True,
+            "order": 0,
+            "capitalize_first": False
+        })
+        
+        for i, f in enumerate(fields_list):
+            settings.append({
+                "name": f.get("name"),
+                "alias": f.get("alias"),
+                "visible": f.get("visible", True),
+                "order": i + 1,
+                "capitalize_first": False
+            })
+            
+        # Add audit fields
+        settings.append({"name": "created_at", "alias": "Date Created", "visible": False, "order": len(fields_list) + 1, "capitalize_first": False})
+        settings.append({"name": "updated_at", "alias": "Date Updated", "visible": False, "order": len(fields_list) + 2, "capitalize_first": False})
+        settings.append({"name": "created_by_name", "alias": "Created By", "visible": False, "order": len(fields_list) + 3, "capitalize_first": False})
+        settings.append({"name": "updated_by_name", "alias": "Updated By", "visible": False, "order": len(fields_list) + 4, "capitalize_first": False})
+
+        existing = TableSetting.fetch_by_table_name(table_name)
+        if existing:
+            # Update only if settings_json is None or we want to overwrite/sync
+            # For now, we sync the structure if it's a CRUD module
+            TableSetting.update(existing.id, settings_json=json.dumps(settings), table_description=f"Management for {name}")
+        else:
+            TableSetting.store(
+                table_name=table_name,
+                table_description=f"Management for {name}",
+                settings_json=json.dumps(settings),
+                items_per_page=10,
+                table_height=300
+            )
+
+    def _delete_table_settings(self, table_name):
+        """Removes table settings for the module."""
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM table_settings WHERE table_name = ?", (table_name,))
         conn.commit()
         conn.close()
