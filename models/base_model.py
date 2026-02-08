@@ -282,6 +282,11 @@ class BaseModel:
         except Exception:
             pass
 
+        # Filter kwargs to only include valid database fields
+        model_fields = getattr(cls, "fields", [])
+        if model_fields:
+            kwargs = {k: v for k, v in kwargs.items() if k in model_fields}
+
         fields = ", ".join(f'"{key}"' for key in kwargs.keys())
         placeholders = ", ".join("?" for _ in kwargs)
         values = list(kwargs.values())
@@ -313,6 +318,11 @@ class BaseModel:
                     kwargs["updated_by"] = user.id
         except Exception:
             pass
+
+        # Filter kwargs to only include valid database fields
+        model_fields = getattr(cls, "fields", [])
+        if model_fields:
+            kwargs = {k: v for k, v in kwargs.items() if k in model_fields}
 
         set_clause = ", ".join(f'"{key}"=?' for key in kwargs.keys())
         values = list(kwargs.values())
