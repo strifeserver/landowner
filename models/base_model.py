@@ -34,6 +34,7 @@ class BaseModel:
         custom_query=None,
         table_alias=None,
         debug=False,
+        conn=None,
         **kwargs,
     ):
         """
@@ -57,7 +58,12 @@ class BaseModel:
         """
         import sqlite3
 
-        conn = sqlite3.connect(db_path)
+        if conn:
+            should_close = False
+        else:
+            conn = sqlite3.connect(db_path)
+            should_close = True
+            
         cursor = conn.cursor()
 
         final_fields = custom_fields or fields
@@ -117,25 +123,44 @@ class BaseModel:
         # -----------------------
         # Apply WHERE
         # -----------------------
+        # -----------------------
+        # Apply WHERE
+        # -----------------------
         final_query = base_query
+        
         if where_clauses:
-            final_query += " WHERE " + " AND ".join(where_clauses)
+            # Check if WHERE already exists (case-insensitive)
+            if " WHERE " in final_query.upper():
+                connector = " AND "
+            else:
+                connector = " WHERE "
+            
+            final_query += connector + " AND ".join(where_clauses)
 
         # -----------------------
         # Apply ORDER BY
         # -----------------------
         if sort_by:
-            # Automatically prefix ambiguous fields with main table alias
-            sort_field = f"{alias}.{sort_by}" if sort_by in ambiguous_fields else sort_by
-            # Validate sort_order
-            sort_order = sort_order.upper() if sort_order.upper() in ['ASC', 'DESC'] else 'ASC'
-            final_query += f" ORDER BY {sort_field} {sort_order}"
+            # Check if ORDER BY already exists (case-insensitive)
+            # If custom_query has ORDER BY, we need to handle it or append?
+            # Usually custom_query is just SELECT ... FROM ... JOIN ...
+            # But just in case:
+            if " ORDER BY " in final_query.upper():
+                 # Complex to merge orders. Assume custom_query doesn't sort, or we append secondary sort
+                 final_query += f", {sort_field} {sort_order}"
+            else:
+                 # Automatically prefix ambiguous fields with main table alias
+                 sort_field = f"{alias}.{sort_by}" if sort_by in ambiguous_fields else sort_by
+                 # Validate sort_order
+                 sort_order = sort_order.upper() if sort_order.upper() in ['ASC', 'DESC'] else 'ASC'
+                 final_query += f" ORDER BY {sort_field} {sort_order}"
 
         # -----------------------
         # Pagination
         # -----------------------
         total_rows = None
         if pagination:
+            # Use subquery to count correctly even with complex joins/group by
             total_rows_query = f"SELECT COUNT(*) FROM ({final_query})"
             cursor.execute(total_rows_query, params)
             total_rows = cursor.fetchone()[0]
@@ -149,7 +174,9 @@ class BaseModel:
 
         cursor.execute(final_query, params)
         rows = cursor.fetchall()
-        conn.close()
+        
+        if should_close:
+            conn.close()
 
         # Map rows → class objects
         data = [cls(**dict(zip(final_fields, row))) for row in rows]
@@ -185,6 +212,7 @@ class BaseModel:
         custom_fields=None,
         table_alias=None,
         debug=False,
+        conn=None,
     ):
         """
         Fetch a single row from SQLite, either by ID or custom filters.
@@ -203,7 +231,12 @@ class BaseModel:
         Returns:
             Single object of cls or None
         """
-        conn = sqlite3.connect(db_path)
+        if conn:
+            should_close = False
+        else:
+            conn = sqlite3.connect(db_path)
+            should_close = True
+            
         cursor = conn.cursor()
 
         if custom_fields:
@@ -244,14 +277,24 @@ class BaseModel:
 
         # Build final query
         final_query = base_query
+        
         if where_clauses:
-            final_query += " WHERE " + " AND ".join(where_clauses)
+            # Check if WHERE already exists (case-insensitive)
+            if " WHERE " in final_query.upper():
+                connector = " AND "
+            else:
+                connector = " WHERE "
+                
+            final_query += connector + " AND ".join(where_clauses)
+            
         final_query += " LIMIT 1"  # always fetch only one
 
 
         cursor.execute(final_query, params)
         row = cursor.fetchone()
-        conn.close()
+        
+        if should_close:
+            conn.close()
 
         if row:
             return cls(**dict(zip(final_fields, row)))
@@ -261,8 +304,13 @@ class BaseModel:
 
 
     @classmethod
-    def store_sqlite(cls, db_path, target_table, **kwargs):
-        conn = sqlite3.connect(db_path)
+    def store_sqlite(cls, db_path, target_table, conn=None, **kwargs):
+        if conn:
+            should_close = False
+        else:
+            conn = sqlite3.connect(db_path)
+            should_close = True
+            
         cursor = conn.cursor()
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -294,16 +342,26 @@ class BaseModel:
         cursor.execute(
             f"INSERT INTO {target_table} ({fields}) VALUES ({placeholders})", values
         )
-        conn.commit()
+        
+        if should_close or not conn.in_transaction:
+            conn.commit()
+            
         last_id = cursor.lastrowid
-        conn.close()
+        
+        if should_close:
+            conn.close()
 
         kwargs["id"] = last_id
         return cls(**kwargs)
 
     @classmethod
-    def update_sqlite(cls, db_path, target_table, row_id, **kwargs):
-        conn = sqlite3.connect(db_path)
+    def update_sqlite(cls, db_path, target_table, row_id, conn=None, **kwargs):
+        if conn:
+            should_close = False
+        else:
+            conn = sqlite3.connect(db_path)
+            should_close = True
+            
         cursor = conn.cursor()
 
         kwargs["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -330,20 +388,33 @@ class BaseModel:
 
         query = f"UPDATE {target_table} SET {set_clause} WHERE id = ?"
         cursor.execute(query, values)
-        conn.commit()
-        conn.close()
+        
+        if should_close or not conn.in_transaction:
+            conn.commit()
+            
+        if should_close:
+            conn.close()
 
         return True
 
     @classmethod
-    def destroy_sqlite(cls, db_path, target_table, row_id):
-        conn = sqlite3.connect(db_path)
+    def destroy_sqlite(cls, db_path, target_table, row_id, conn=None):
+        if conn:
+            should_close = False
+        else:
+            conn = sqlite3.connect(db_path)
+            should_close = True
+            
         cursor = conn.cursor()
 
         query = f"DELETE FROM {target_table} WHERE id=?"
         cursor.execute(query, (row_id,))
-        conn.commit()
-        conn.close()
+        
+        if should_close or not conn.in_transaction:
+            conn.commit()
+            
+        if should_close:
+            conn.close()
 
         return True
 

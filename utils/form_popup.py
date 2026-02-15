@@ -16,7 +16,7 @@ def open_form_popup(title, field_definitions, on_submit, initial_data=None):
     # Filter visible fields first to determine layout
     visible_fields = []
     for field_name, config in field_definitions.items():
-        if field_name in ("id", "created_at", "updated_at", "created_by", "updated_by"):
+        if field_name in ("id", "created_at", "updated_at", "created_by", "updated_by", "created_by_name", "updated_by_name"):
             continue
         if config.get("is_hidden") is True:
             continue
@@ -77,7 +77,13 @@ def open_form_popup(title, field_definitions, on_submit, initial_data=None):
         tk.Label(frame, text=label, anchor="w", font=("Arial", 9, "bold")).pack(fill=tk.X)
 
         if options is not None:
-            input_widget = create_dropdown_field(frame, options, value, is_editable)
+            field_type = config.get("type", "select")
+            if field_type == "searchable_select":
+                input_widget = create_searchable_dropdown(frame, options, value, is_editable)
+            elif field_type == "multi_select":
+                input_widget = create_multi_select(frame, options, value, is_editable)
+            else:
+                input_widget = create_dropdown_field(frame, options, value, is_editable)
         else:
             input_widget = create_text_field(frame, value, is_editable)
 
@@ -162,6 +168,167 @@ def create_dropdown_field(parent, options, current_value=None, editable=True):
     combobox.pack(fill=tk.X, ipady=3)
 
     return (var, label_to_value)
+
+
+def create_searchable_dropdown(parent, options, current_value=None, editable=True):
+    """
+    Creates a Combobox that filters its values based on user typing.
+    Returns a tuple: (StringVar, label_to_value_map)
+    """
+    is_object_list = False
+    if options and isinstance(options, list):
+        if len(options) > 0 and isinstance(options[0], dict) and "label" in options[0] and "value" in options[0]:
+            is_object_list = True
+
+    combo_values = []
+    label_to_value = {}
+    value_to_label = {}
+    
+    if is_object_list:
+        for opt in options:
+            lbl = str(opt["label"])
+            val = opt["value"]
+            label_to_value[lbl] = val
+            value_to_label[str(val)] = lbl
+            combo_values.append(lbl)
+            
+        default_label = value_to_label.get(str(current_value), "")
+        if not default_label and current_value == "": 
+             default_label = ""
+        elif not default_label:
+             default_label = str(current_value)
+    else:
+        combo_values = [str(x) for x in options]
+        default_label = str(current_value)
+
+    var = tk.StringVar(value=default_label)
+
+    # Use a standard Combobox but add filtering logic
+    combobox = ttk.Combobox(
+        parent,
+        textvariable=var,
+        values=combo_values,
+        state="normal" if editable else "disabled" # Must be normal to type
+    )
+    combobox.pack(fill=tk.X, ipady=3)
+
+    if not editable:
+        return (var, label_to_value)
+
+    # Store full list for filtering
+    combobox._all_values = combo_values
+
+    def on_keyrelease(event):
+        # Filter values based on typed text
+        value = event.widget.get()
+        if value == '':
+            event.widget['values'] = event.widget._all_values
+        else:
+            data = []
+            for item in event.widget._all_values:
+                if value.lower() in item.lower():
+                    data.append(item)
+            event.widget['values'] = data
+            
+    combobox.bind('<KeyRelease>', on_keyrelease)
+    
+    # Reset values on dropdown open to show full list if empty or match
+    def on_post(event):
+         if not var.get():
+             combobox['values'] = combobox._all_values
+
+    combobox.bind('<<ComboboxSelected>>', lambda e: None) # Default behavior
+    combobox.bind('<Button-1>', on_post)
+
+    return (var, label_to_value)
+
+
+def create_multi_select(parent, options, current_value=None, editable=True):
+    """
+    Creates a checkable list for multi-selection.
+    Returns a tuple: (StringVar, None) - StringVar holds comma-separated values.
+    """
+    # Parse current value (comma-separated string)
+    selected_values = set()
+    if current_value:
+        try:
+            for v in str(current_value).split(','):
+                if v.strip():
+                    selected_values.add(v.strip())
+        except:
+            pass
+            
+    # Process options
+    choices = []
+    if options and isinstance(options, list):
+        if len(options) > 0 and isinstance(options[0], dict):
+            for opt in options:
+                choices.append({"label": str(opt["label"]), "value": str(opt["value"])})
+        else:
+            for opt in options:
+                choices.append({"label": str(opt), "value": str(opt)})
+                
+    # Create widget
+    container = tk.Frame(parent, bg="white")
+    container.pack(fill=tk.X, expand=True)
+
+    # Add Search bar
+    search_var = tk.StringVar()
+    search_entry = tk.Entry(container, textvariable=search_var)
+    search_entry.pack(fill=tk.X, pady=(0, 5))
+    
+    frame = tk.Frame(container, borderwidth=1, relief="sunken", bg="white")
+    frame.pack(fill=tk.X, expand=True)
+    
+    canvas = tk.Canvas(frame, height=100, bg="white", highlightthickness=0)
+    scrollbar = ttk.Scrollbar(frame, orient="vertical", command=canvas.yview)
+    scroll_frame = tk.Frame(canvas, bg="white")
+    
+    scroll_frame.bind(
+        "<Configure>",
+        lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+    )
+    
+    canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+    canvas.configure(yscrollcommand=scrollbar.set)
+    
+    canvas.pack(side="left", fill="both", expand=True)
+    scrollbar.pack(side="right", fill="y")
+    
+    vars_map = {} # val -> BooleanVar
+    cb_widgets = {} # val -> widget
+    
+    def on_change(*args):
+        # Update result string
+        vals = [val for val, var in vars_map.items() if var.get()]
+        result_var.set(",".join(vals))
+
+    result_var = tk.StringVar(value=",".join(selected_values))
+    
+    for choice in choices:
+        val = choice["value"]
+        lbl = choice["label"]
+        var = tk.BooleanVar(value=(val in selected_values))
+        var.trace_add("write", on_change)
+        vars_map[val] = var
+        
+        cb = tk.Checkbutton(scroll_frame, text=lbl, variable=var, bg="white", anchor="w")
+        if not editable:
+            cb.config(state="disabled")
+        cb.pack(fill="x", padx=2)
+        cb_widgets[val] = (cb, lbl)
+
+    def filter_list(*args):
+        query = search_var.get().lower()
+        for val, (cb, lbl) in cb_widgets.items():
+            if query in lbl.lower():
+                cb.pack(fill="x", padx=2)
+            else:
+                cb.pack_forget()
+
+    search_var.trace_add("write", filter_list)
+        
+    return (result_var, None)
 
 
 def handle_submit(entries, on_submit, popup):
