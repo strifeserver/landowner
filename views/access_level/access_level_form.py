@@ -1,25 +1,35 @@
 import tkinter as tk
 from tkinter import ttk
-from utils.Alert import Alert
+from utils.alert import Alert
 from models.navigation import Navigation
 from models.access_level import AccessLevel
 
 class AccessLevelForm(tk.Toplevel):
-    def __init__(self, parent_master, item_id=None, callback=None, **kwargs):
+    def __init__(self, parent_master, item_id=None, callback=None, initial_data=None, **kwargs):
         """
         parent_master: The parent Tk widget
         item_id: ID to edit, or None for Add mode
         callback: Function to call after successful save (optional)
+        initial_data: Row data/object passed from TableView
         """
         super().__init__(parent_master)
+        
+        # Standardize ID extraction: item_id, initial_data.id, or initial_data['id']
         self.access_level_id = item_id
-        self.callback = callback
+        if not self.access_level_id and initial_data:
+            if isinstance(initial_data, dict):
+                self.access_level_id = initial_data.get('id')
+            else:
+                self.access_level_id = getattr(initial_data, 'id', None)
+
+        self.callback = callback or kwargs.get("on_save_callback")
         
         # Lazy import to avoid circular dependency
         from controllers.AccessLevelController import AccessLevelController
         self.controller = AccessLevelController()
         
         mode_text = "Edit" if self.access_level_id else "Add"
+        print(f"DEBUG: AccessLevelForm in {mode_text} mode (ID: {self.access_level_id})")
         self.title(f"{mode_text} Access Level")
         self.geometry("1100x700")
         
@@ -129,7 +139,11 @@ class AccessLevelForm(tk.Toplevel):
             perm_types = ["view", "add", "edit", "delete", "export", "import"]
             for col_idx, p_type in enumerate(perm_types, start=1):
                 var = tk.IntVar()
-                if nav_id in self.perms[p_type]:
+                
+                # Pre-selection matching: ensure IDs are matching consistently
+                match = (int(nav_id) in self.perms[p_type])
+                
+                if match:
                     var.set(1)
                 
                 self.vars[nav_id][p_type] = var

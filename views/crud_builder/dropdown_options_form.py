@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import ttk
 
 class DropdownOptionsForm(tk.Toplevel):
-    def __init__(self, parent, initial_options=None, callback=None):
+    def __init__(self, parent, initial_options=None, callback=None, **kwargs):
         super().__init__(parent)
         self.title("Manage Dropdown Options")
         self.geometry("400x500")

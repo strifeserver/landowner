@@ -9,6 +9,7 @@ class UsersRequest(BaseRequest):
             'account_status': ['required', 'string'],
             'is_locked': ['required', 'integer'],
             'access_level': ['required', 'integer'],
+            'spreadsheet_validation': ['integer'],
         }
 
     def store_rules(self):

@@ -4,19 +4,35 @@ from tkinter import ttk, messagebox
 import json
 
 class TableSettingsDetailView(tk.Toplevel):
-    def __init__(self, parent, item_id=None, callback=None, initial_data=None):
+    def __init__(self, parent, item_id=None, callback=None, initial_data=None, **kwargs):
         super().__init__(parent)
-        self.title(f"Configure Table: {initial_data.get('table_name', 'Unknown')}")
+        
+        # Robustly handle if initial_data is an object or a dict
+        def get_val(key, default=None):
+            if isinstance(initial_data, dict):
+                return initial_data.get(key, default)
+            return getattr(initial_data, key, default)
+
+        self.title(f"Configure Table: {get_val('table_name', 'Unknown')}")
         self.geometry("600x700")
+        
+        # Standardize ID extraction
         self.item_id = item_id
-        self.callback = callback
+        if not self.item_id and initial_data:
+            if isinstance(initial_data, dict):
+                self.item_id = initial_data.get('id')
+            else:
+                self.item_id = getattr(initial_data, 'id', None)
+
+        self.callback = callback or kwargs.get("on_save_callback")
         self.initial_data = initial_data
         
         # Load existing settings
         self.settings = []
-        if initial_data.get('settings_json'):
+        settings_json = get_val('settings_json')
+        if settings_json:
             try:
-                self.settings = json.loads(initial_data['settings_json'])
+                self.settings = json.loads(settings_json)
             except:
                 pass
         
@@ -32,7 +48,13 @@ class TableSettingsDetailView(tk.Toplevel):
         """Try to fetch column names from the database for this table."""
         import sqlite3
         import os
-        table_name = self.initial_data.get('table_name')
+        
+        # Use robust getter for table_name
+        if isinstance(self.initial_data, dict):
+            table_name = self.initial_data.get('table_name')
+        else:
+            table_name = getattr(self.initial_data, 'table_name', None)
+            
         if not table_name:
             return
         
@@ -57,6 +79,12 @@ class TableSettingsDetailView(tk.Toplevel):
             print(f"Error discovering columns for {table_name}: {e}")
 
     def _setup_ui(self):
+        # Helper to get values from initial_data (dict or object)
+        def get_val(key, default=None):
+            if isinstance(self.initial_data, dict):
+                return self.initial_data.get(key, default)
+            return getattr(self.initial_data, key, default)
+        
         # ----------------------------------------------------------------------
         # Top Settings (Items per page, Table Height)
         # ----------------------------------------------------------------------
@@ -64,11 +92,11 @@ class TableSettingsDetailView(tk.Toplevel):
         top_frame.pack(fill="x")
         
         tk.Label(top_frame, text="Items Per Page:").grid(row=0, column=0, sticky="w")
-        self.items_per_page_var = tk.StringVar(value=str(self.initial_data.get('items_per_page', 10)))
+        self.items_per_page_var = tk.StringVar(value=str(get_val('items_per_page', 10)))
         tk.Entry(top_frame, textvariable=self.items_per_page_var, width=10).grid(row=0, column=1, sticky="w", padx=10)
         
         tk.Label(top_frame, text="Table Height (px):").grid(row=1, column=0, sticky="w", pady=(5,0))
-        self.table_height_var = tk.StringVar(value=str(self.initial_data.get('table_height', 300)))
+        self.table_height_var = tk.StringVar(value=str(get_val('table_height', 300)))
         tk.Entry(top_frame, textvariable=self.table_height_var, width=10).grid(row=1, column=1, sticky="w", padx=10, pady=(5,0))
         
         ttk.Separator(self, orient="horizontal").pack(fill="x", pady=10)

@@ -6,7 +6,7 @@ import os.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 import tkinter as tk
-from utils.Alert import Alert
+from utils.alert import Alert
 
 def test_alerts():
     root = tk.Tk()

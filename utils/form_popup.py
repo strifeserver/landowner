@@ -1,7 +1,7 @@
 # utils/form_popup.py
 import tkinter as tk
 from tkinter import ttk
-from utils.Alert import Alert
+from utils.alert import Alert
 
 def open_form_popup(title, field_definitions, on_submit, initial_data=None):
     """

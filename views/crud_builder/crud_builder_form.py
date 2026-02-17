@@ -2,7 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 import json
-from utils.Alert import Alert
+from utils.alert import Alert
 from views.crud_builder.dropdown_options_form import DropdownOptionsForm
 
 class CrudBuilderForm(tk.Toplevel):
@@ -169,11 +169,22 @@ class CrudBuilderForm(tk.Toplevel):
         self.sort_combo["values"] = options
 
     def _load_data(self, data):
-        self.name_entry.insert(0, data.get("name", ""))
-        self.sort_field_var.set(data.get("sort_field", "id"))
-        self.sort_dir_var.set(data.get("sort_direction", "ASC"))
+        # Handle both dict and object
+        def get_val(obj, key, default=""):
+            if isinstance(obj, dict):
+                return obj.get(key, default)
+            return getattr(obj, key, default)
+
+        name = get_val(data, "name")
+        self.name_entry.insert(0, name)
         
-        fields_json = data.get("fields_json")
+        sort_field = get_val(data, "sort_field", "id")
+        self.sort_field_var.set(sort_field)
+        
+        sort_dir = get_val(data, "sort_direction", "ASC")
+        self.sort_dir_var.set(sort_dir)
+        
+        fields_json = get_val(data, "fields_json")
         if fields_json:
             fields = json.loads(fields_json) if isinstance(fields_json, str) else fields_json
             for f in fields:

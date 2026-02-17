@@ -2,7 +2,7 @@
 from utils.form_popup import open_form_popup
 from utils.debug import print_r
 from utils.safe_launcher import safe_launch
-from utils.Alert import Alert
+from utils.alert import Alert
 
 def on_add(table_view: "TableView"):
     # 1. NEW: Check for dynamic view selection from the controller's create method
@@ -49,7 +49,24 @@ def on_add(table_view: "TableView"):
         return response
 
     if view_type == "custom" and view_class:
-        safe_launch(view_class, table_view.winfo_toplevel(), callback=on_submit, **(initial_data or {}))
+        # If view_class is a string, dynamically import it
+        if isinstance(view_class, str):
+            try:
+                module_name, class_name = view_class.rsplit('.', 1)
+                module = __import__(f"views.{module_name}", fromlist=[class_name])
+                view_class = getattr(module, class_name)
+            except Exception as e:
+                Alert.error(f"Error loading custom view: {e}")
+                return
+        
+        safe_launch(
+            view_class, 
+            table_view.winfo_toplevel(), 
+            merchant_data=None, 
+            initial_data=None,
+            callback=on_submit,
+            on_save_callback=lambda: table_view.render_rows() if table_view.winfo_exists() else None
+        )
     else:
         safe_launch(open_form_popup, "Insert Data", field_definitions, on_submit=on_submit, initial_data=initial_data)
 
@@ -84,9 +101,6 @@ def on_edit(table_view: "TableView"):
         field_definitions = instruction.get("field_definitions")
         initial_data = instruction.get("initial_data", row)
 
-    # Ensure initial_data is a dictionary if it's an object (for custom views compatibility)
-    if initial_data and not isinstance(initial_data, dict) and hasattr(initial_data, "__dict__"):
-        initial_data = dict(initial_data.__dict__)
 
     # Robustly get the row ID
     row_id = getattr(row, "id", None) if not isinstance(row, dict) else row.get("id")
@@ -113,8 +127,24 @@ def on_edit(table_view: "TableView"):
         return response
 
     if view_type == "custom" and view_class:
-        # Pass both ID and initial_data for custom views
-        safe_launch(view_class, table_view.winfo_toplevel(), item_id=row_id, callback=on_submit, initial_data=initial_data)
+        # If view_class is a string, dynamically import it
+        if isinstance(view_class, str):
+            try:
+                module_name, class_name = view_class.rsplit('.', 1)
+                module = __import__(f"views.{module_name}", fromlist=[class_name])
+                view_class = getattr(module, class_name)
+            except Exception as e:
+                Alert.error(f"Error loading custom view: {e}")
+                return
+        
+        safe_launch(
+            view_class, 
+            table_view.winfo_toplevel(), 
+            initial_data=initial_data, 
+            merchant_data=initial_data,
+            callback=on_submit,
+            on_save_callback=lambda: (table_view.render_rows() if table_view.winfo_exists() else None)
+        )
     else:
         safe_launch(open_form_popup, "Update Data", field_definitions, on_submit=on_submit, initial_data=initial_data)
 

@@ -7,7 +7,7 @@ from utils.debug import print_r
 import traceback
 from datetime import datetime
 import tkinter.font as tkFont
-import psutil, os 
+import os 
 from helpers.helpers import get_controller
 
 
@@ -175,7 +175,19 @@ class RightPanel(tk.Frame):
     def clear(self):
         self.stop_timers()
         for widget in self.winfo_children():
+            # Check if widget has a custom cleanup method
+            if hasattr(widget, "cleanup") and callable(widget.cleanup):
+                try:
+                    widget.cleanup()
+                except Exception as e:
+                    print(f"Cleanup error for {widget}: {e}")
             widget.destroy()
+        
+        self.stop_timers()  # Ensure timers are stopped when clearing panel
+        
+        # Proactive Garbage Collection after clearing content
+        import gc
+        gc.collect()
 
 
     def create_footer(self):
@@ -222,19 +234,7 @@ class RightPanel(tk.Frame):
 
         
     def update_memory_usage(self):
-        if not self.winfo_exists():
-            return
-        
-        try:
-            process = psutil.Process(os.getpid())
-            mem_mb = process.memory_info().rss / (1024 * 1024)
-            if hasattr(self, 'memory_label') and self.memory_label.winfo_exists():
-                self.memory_label.config(text=f"Memory Usage: {mem_mb:.2f} MB")
-            
-            # Re-schedule and store ID
-            self._after_ids['memory'] = self.after(1000, self.update_memory_usage)
-        except Exception:
-            pass
+        pass
 
 
     def create_top_right_account(self):

@@ -1,34 +1,44 @@
 import tkinter as tk
 from tkinter import ttk
-from utils.Alert import Alert
+from utils.alert import Alert
 from models.user import User
 from models.access_level import AccessLevel
 
 class UserForm(tk.Toplevel):
-    def __init__(self, parent_master, item_id=None, callback=None, **kwargs):
+    def __init__(self, parent_master, item_id=None, callback=None, initial_data=None, **kwargs):
         """
         parent_master: The parent Tk widget
         item_id: User ID to edit, or None for Add mode
-        callback: Function to call after successful save (returns controller response)
+        callback: Function to call after successful save
+        initial_data: Data passed from controller
         """
         super().__init__(parent_master)
+        self.callback = callback or kwargs.get("on_save_callback")
+        self.initial_data = initial_data or kwargs
+        
+        # Robustly get user_id from arguments or initial_data
         self.user_id = item_id
-        self.callback = callback
-        
-        # Initial Data passed from controller (like customId)
-        self.initial_data = kwargs
-        
+        if not self.user_id and self.initial_data:
+            if isinstance(self.initial_data, dict):
+                self.user_id = self.initial_data.get("id")
+            else:
+                self.user_id = getattr(self.initial_data, "id", None)
+
         mode_text = "Edit" if self.user_id else "Add"
         self.title(f"{mode_text} User")
-        self.geometry("450x550")
+        self.geometry("450x650")
         self.resizable(False, False)
         self.config(bg="#f8f9fa")
 
         # Data Loading
         self.user_data = None
         if self.user_id:
-            # Use User object if passed directly in kwargs (optional)
-            self.user_data = User.edit(self.user_id)
+            # If initial_data is the object itself, use it. Otherwise, fetch from DB.
+            if self.initial_data and (isinstance(self.initial_data, User) or (isinstance(self.initial_data, dict) and "username" in self.initial_data)):
+                 self.user_data = self.initial_data
+            else:
+                 self.user_data = User.edit(self.user_id)
+                 
             if not self.user_data:
                 Alert.error("User not found!")
                 self.destroy()
@@ -105,11 +115,46 @@ class UserForm(tk.Toplevel):
             bg="#f8f9fa", 
             font=("Arial", 10)
         )
-        self.lock_check.pack(anchor="w", pady=(0, 20))
+        self.lock_check.pack(anchor="w", pady=(0, 15))
         if self.user_data:
             self.is_locked_var.set(1 if self.user_data.is_locked else 0)
 
-        # 7. Actions
+        # 8. Spreadsheet Validation (Checkbox)
+        self.spreadsheet_validation_var = tk.IntVar(value=0)
+        self.spreadsheet_check = tk.Checkbutton(
+            container, 
+            text="Spreadsheet Validation", 
+            variable=self.spreadsheet_validation_var, 
+            bg="#f8f9fa", 
+            font=("Arial", 10)
+        )
+        self.spreadsheet_check.pack(anchor="w", pady=(0, 15))
+        if self.user_data:
+            self.spreadsheet_validation_var.set(1 if getattr(self.user_data, 'spreadsheet_validation', 0) else 0)
+
+        # 9. Last Login (Read-only, ONLY in EDIT mode)
+        if self.user_id and self.user_data:
+            tk.Label(container, text="Last Login:", bg="#f8f9fa", font=("Arial", 10, "bold")).pack(anchor="w")
+            last_login_value = getattr(self.user_data, 'last_login', 'Never') or 'Never'
+            self.last_login_entry = tk.Entry(container, font=("Arial", 10), state="normal")
+            self.last_login_entry.insert(0, last_login_value)
+            self.last_login_entry.config(state="readonly")
+            self.last_login_entry.pack(fill="x", pady=(0, 5))
+            
+            # Reset Login Button (8 days ago)
+            reset_btn = tk.Button(
+                container, 
+                text="Reset Login", 
+                command=self.reset_login_8_days,
+                bg="#6c757d",
+                fg="white",
+                font=("Arial", 8),
+                padx=5,
+                pady=2
+            )
+            reset_btn.pack(anchor="w", pady=(0, 15))
+
+        # 10. Actions
         btn_frame = tk.Frame(container, bg="#f8f9fa")
         btn_frame.pack(fill="x", side="bottom")
 
@@ -132,14 +177,39 @@ class UserForm(tk.Toplevel):
         )
         cancel_btn.pack(side="right")
 
+    def reset_login_8_days(self):
+        """Sets the user's last login to 8 days ago for testing."""
+        from datetime import datetime, timedelta
+        
+        eight_days_ago = (datetime.now() - timedelta(days=8)).strftime('%Y-%m-%d %H:%M:%S')
+        
+        try:
+            # Update in DB directly for immediate effect
+            User.update(self.user_id, last_login=eight_days_ago)
+            
+            # Update UI
+            self.last_login_entry.config(state="normal")
+            self.last_login_entry.delete(0, "end")
+            self.last_login_entry.insert(0, eight_days_ago)
+            self.last_login_entry.config(state="readonly")
+            
+            Alert.success(f"Last login reset to {eight_days_ago} (8 days ago).", "Reset Successful")
+        except Exception as e:
+            Alert.error(f"Failed to reset login: {str(e)}")
+
     def save(self):
-        # 1. Harvest Data
+        # 1. Show loading alert
+        loading_popup = Alert.loading("Saving user data...", "Processing")
+        self.update() # Force UI update
+
+        # 2. Harvest Data
         data = {
             "username": self.username_entry.get().strip(),
             "email": self.email_entry.get().strip(),
             "account_status": self.status_var.get().lower(),
             "access_level": self.access_level_map.get(self.access_level_var.get()),
-            "is_locked": self.is_locked_var.get()
+            "is_locked": self.is_locked_var.get(),
+            "spreadsheet_validation": self.spreadsheet_validation_var.get()
         }
 
         # For ADD mode, include Employee ID and Password
@@ -147,11 +217,25 @@ class UserForm(tk.Toplevel):
             data["customId"] = self.initial_data.get("customId")
             data["password"] = self.password_entry.get()
 
-        # 2. Communicate with Controller (via callback passed from table_buttons)
+        # 3. Communicate with Controller (via callback passed from table_buttons)
         if self.callback:
-            response = self.callback(data)
-            
-            if isinstance(response, dict) and response.get("success"):
-                self.destroy()
+            try:
+                response = self.callback(data)
+                
+                # Close loading
+                if loading_popup:
+                    loading_popup.destroy()
+                
+                if isinstance(response, dict) and response.get("success"):
+                    Alert.success(response.get("message", "Operation successful"))
+                    self.destroy()
+                elif isinstance(response, dict) and not response.get("success"):
+                    Alert.error(response.get("message", "Operation failed"), title="Error")
+            except Exception as e:
+                if loading_popup:
+                    loading_popup.destroy()
+                Alert.error(f"Unexpected error: {str(e)}")
         else:
+            if loading_popup:
+                loading_popup.destroy()
             self.destroy() # Fallback

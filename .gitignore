@@ -1,24 +1,33 @@
-**/__pycache__/
-models/__pycache__/user.cpython-313.pyc
-repositories/__pycache__/users_repository.cpython-313.pyc
-requests/__pycache__/rule_validator.cpython-313.pyc
-requests/__pycache__/user_request.cpython-313.pyc
-services/__pycache__/auth_service.cpython-313.pyc
-services/__pycache__/users_service.cpython-313.pyc
-utils/__pycache__/debug.cpython-313.pyc
-utils/__pycache__/form_popup.cpython-313.pyc
-views/__pycache__/main_window.cpython-313.pyc
-views/__pycache__/right_panel.cpython-313.pyc
-views/login/__pycache__/login_view.cpython-313.pyc
-views/table/__pycache__/table_buttons.cpython-313.pyc
-views/table/__pycache__/table_date_filters.cpython-313.pyc
-views/table/__pycache__/table_filters.cpython-313.pyc
-views/table/__pycache__/table_view.cpython-313.pyc
-views/table/__pycache__/treeview_styles.cpython-313.pyc
-controllers/__pycache__/auth_controller.cpython-313.pyc
-controllers/__pycache__/users_controller.cpython-313.pyc
-migrations/__pycache__/000_init_db.cpython-313.pyc
-migrations/__pycache__/001_seed_users.cpython-313.pyc
-migrations/__pycache__/002_seed_settings.cpython-313.pyc
-migrations/__pycache__/003_seed_navigations.cpython-313.pyc
-migrations/__pycache__/004_seed_access_levels.cpython-313.pyc
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/data.db
+
+# Logs
+*.log
+debug_output.txt
+error.txt
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Virtual Environment
+venv/
+env/
+.env
+
+# Pycache (already partially covered but good to be explicit)
+__pycache__/
+*.pyc
+
+# IDEs
+.idea/
+.vscode/
+
+# Build
+dist/
+build/
+*.spec

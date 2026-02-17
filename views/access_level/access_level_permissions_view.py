@@ -5,7 +5,7 @@ from models.access_level import AccessLevel
 from controllers.AccessLevelController import AccessLevelController
 
 class AccessLevelPermissionsView:
-    def __init__(self, parent_master, access_level_id):
+    def __init__(self, parent_master, access_level_id, **kwargs):
         """
         parent_master: The parent Tk widget (e.g. Toplevel or Frame)
         access_level_id: The ID of the access level to edit

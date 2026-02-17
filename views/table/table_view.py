@@ -56,10 +56,12 @@ class TableView(tk.Frame):
             import json
             self.items_per_page = self.table_settings.items_per_page or 10
             
+            
             # Reconstruct columns and labels based on settings_json
             if self.table_settings.settings_json:
                 try:
                     settings = json.loads(self.table_settings.settings_json)
+                    
                     new_cols = []
                     new_labels = []
                     
@@ -68,15 +70,21 @@ class TableView(tk.Frame):
                     sorted_settings = sorted(settings, key=lambda x: x.get('order', 99))
                     
                     for s in sorted_settings:
-                        if s.get('visible', True):
-                            col_name = s.get('name')
+                        visible = s.get('visible', True)
+                        col_name = s.get('name')
+                        
+                        if visible:
                             new_cols.append(col_name)
                             new_labels.append(s.get('alias', col_name))
+                    
+                    
                     
                     self.columns = new_cols
                     self.column_labels = new_labels
                 except Exception as e:
                     print(f"Error parsing table settings JSON for {self.table_name}: {e}")
+        else:
+            pass
         
         self.create_header(title)
 
@@ -200,6 +208,10 @@ class TableView(tk.Frame):
         title_frame = tk.Frame(self)
         title_frame.pack(fill=tk.X, pady=(5, 2))
         tk.Label(title_frame, text=title, font=("Arial", 12, "bold")).pack(side=tk.LEFT, padx=10)
+
+        # Cloud Sync Controls (Specifically for Orders)
+        if self.table_name == "orders":
+            self._create_cloud_sync_controls(title_frame)
 
         # Check Permissions
         perms = self.get_permissions()
@@ -488,3 +500,84 @@ class TableView(tk.Frame):
                 pass
         except TypeError as e:
             pass
+    def _create_cloud_sync_controls(self, parent):
+        """Creates the 'Google Sheet' button that opens the sync modal."""
+        # Check validation status from assigned merchant
+        try:
+            from controllers.CloudSyncController import CloudSyncController
+            merchant = CloudSyncController.get_assigned_merchant()
+            
+            # is_sheet_validated might be 0, 1, or string "0", "1"
+            is_validated = int(merchant.get('is_sheet_validated', 0)) if merchant else 0
+            
+        except Exception as e:
+            is_validated = 0
+
+        btn_state = tk.NORMAL if is_validated else tk.DISABLED
+        btn_bg = "#fce4ec" if is_validated else "#f0f0f0"
+        
+        tk.Button(
+            parent, 
+            text="Google Sheet", 
+            command=self._open_sync_modal,
+            bg=btn_bg,
+            state=btn_state
+        ).pack(side="left", padx=5)
+        
+        # Show validation warning if not validated
+        if not is_validated:
+            tk.Label(
+                parent,
+                text="(Sheet Validation Required)",
+                fg="red",
+                font=("Arial", 9)
+            ).pack(side="left", padx=5)
+        
+        # Display unsynced orders count
+        try:
+            from controllers.OrdersController import OrdersController
+            unsynced_count = OrdersController.get_unsynced_count()
+            
+            if unsynced_count > 0:
+                # Determine badge color
+                if unsynced_count > 10:
+                    badge_bg = "#e74c3c"  # Red
+                elif unsynced_count > 0:
+                    badge_bg = "#f39c12"  # Orange
+                else:
+                    badge_bg = "#27ae60"  # Green
+                
+                badge_label = tk.Label(
+                    parent,
+                    text=f"  Unsynced: {unsynced_count}  ",
+                    font=("Arial", 9, "bold"),
+                    bg=badge_bg,
+                    fg="white",
+                    padx=8,
+                    pady=2
+                )
+                badge_label.pack(side=tk.LEFT, padx=5)
+        except Exception as e:
+            pass  # Silently fail if unsynced count can't be retrieved
+
+    def _open_sync_modal(self):
+        from views.table.sync_modal import SyncModal
+        SyncModal(self.winfo_toplevel(), self)
+
+    def cleanup(self):
+        """Releases references and clears data for memory optimization."""
+        if hasattr(self, 'filtered_data'):
+            self.filtered_data.clear()
+            self.filtered_data = []
+        
+        # Clear data from treeview
+        if hasattr(self, 'tree'):
+            try:
+                for item in self.tree.get_children():
+                    self.tree.delete(item)
+            except:
+                pass
+        
+        # Destroy widgets to be sure
+        for widget in self.winfo_children():
+            widget.destroy()

@@ -4,48 +4,59 @@ from tkinter import messagebox
 from views.main_window import MainWindow  # Make sure this import works correctly
 
 class AnimatedLabel(tk.Label):
-    """A Label that can display an animated GIF."""
+    """A Label that can display an animated GIF using ImageManager for caching."""
     def __init__(self, master, file_path, size=(120, 120), **kwargs):
         super().__init__(master, **kwargs)
-        from PIL import Image, ImageTk
-        self.frames = []
-        self.delay = 100
+        from utils.ImageManager import ImageManager
         
-        try:
-            with Image.open(file_path) as img:
-                self.delay = img.info.get('duration', 100)
-                try:
-                    while True:
-                        # Process frame
-                        frame = img.copy()
-                        frame.thumbnail(size, Image.Resampling.LANCZOS)
-                        self.frames.append(ImageTk.PhotoImage(frame))
-                        img.seek(len(self.frames)) # Skip to next frame
-                except EOFError:
-                    pass # End of frames
-        except Exception as e:
-            pass
-
+        self.frames, self.delay = ImageManager.get_gif(file_path, size)
+        
         self.idx = 0
         self._after_id = None
+        self._is_animating = False
+        
         if self.frames:
             self.config(image=self.frames[0])
             if len(self.frames) > 1:
                 self.animate()
+                # Bind visibility events to pause/resume animation
+                self.bind("<Map>", self._resume_animation)
+                self.bind("<Unmap>", self._pause_animation)
         
         self.bind("<Destroy>", lambda e: self.stop_animation())
 
     def animate(self):
-        if not self.winfo_exists():
+        if not self.winfo_exists() or not self.frames:
             return
+            
+        # If not viewable, stop the loop
+        if not self.winfo_viewable():
+            self._is_animating = False
+            return
+
+        self._is_animating = True
         self.idx = (self.idx + 1) % len(self.frames)
-        self.config(image=self.frames[self.idx])
-        self._after_id = self.after(self.delay, self.animate)
+        try:
+            self.config(image=self.frames[self.idx])
+            self._after_id = self.after(self.delay, self.animate)
+        except:
+            pass
+
+    def _resume_animation(self, event=None):
+        if not self._is_animating and self.frames and len(self.frames) > 1:
+            self.animate()
+
+    def _pause_animation(self, event=None):
+        pass
 
     def stop_animation(self):
         if self._after_id:
-            self.after_cancel(self._after_id)
+            try:
+                self.after_cancel(self._after_id)
+            except:
+                pass
             self._after_id = None
+            self._is_animating = False
 
 class LoginView:
     def __init__(self, controller):
@@ -116,9 +127,10 @@ class LoginView:
     def handle_quick_login(self):
         """Re-enters the app using existing session."""
         from utils.session import Session
+        from utils.alert import Alert
         user = Session.get_user()
         if user:
-            messagebox.showinfo("Quick Login", f"Welcome back, {user.username}!")
+            Alert.success(f"Welcome back, {user.username}!", title="Quick Login")
             self.root.destroy()
             MainWindow()
         else:
@@ -128,18 +140,41 @@ class LoginView:
         username = self.username_entry.get()
         password = self.password_entry.get()
 
+        # Show loading alert
+        from utils.alert import Alert
+        loading_popup = Alert.loading("Validating credentials...", "Logging In")
+        
+        # Force UI update to show loading
+        self.root.update()
+        
         try:
             user = self.controller.login(username, password)
+            
+            # Close loading popup
+            if loading_popup:
+                loading_popup.destroy()
             
             if user:
                 from utils.session import Session
                 Session.set_user(user)
                 
-                messagebox.showinfo("Success", f"Welcome, {user.username}!")
+                # Show welcome notification
+                Alert.custom(
+                    f"Welcome back, {user.username}! You have successfully logged in.",
+                    title="Welcome!",
+                    icon_type="success"
+                )
+                
                 self.root.destroy()
                 MainWindow()  # You might want to pass the controller here if needed
                 
         except ValueError as e:
-             messagebox.showerror("Login Failed", str(e))
+            # Close loading popup
+            if loading_popup:
+                loading_popup.destroy()
+            Alert.error(str(e), "Login Failed")
         except Exception as e:
-             messagebox.showerror("Error", f"An unexpected error occurred: {e}")
+            # Close loading popup
+            if loading_popup:
+                loading_popup.destroy()
+            Alert.error(f"An unexpected error occurred: {e}", "Error")

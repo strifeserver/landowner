@@ -57,6 +57,17 @@ class User(BaseModel):
         "updated_at": {"alias": "Date Updated", "order": 11},
         "created_by_name": {"alias": "Created By", "order": 12, "editable": False},
         "updated_by_name": {"alias": "Updated By", "order": 13, "editable": False},
+        "spreadsheet_validation": {
+            "alias": "Spreadsheet Validation",
+            "order": 14,
+            "editable": True,
+            "type": "boolean"
+        },
+        "last_login": {
+            "alias": "Last Login",
+            "order": 15,
+            "editable": False,
+        },
     }
 
     # -----------------------
@@ -74,6 +85,8 @@ class User(BaseModel):
         "account_status",
         "is_locked",
         "temporary_password",
+        "spreadsheet_validation",
+        "last_login",
         "created_at",
         "updated_at",
         "created_by",

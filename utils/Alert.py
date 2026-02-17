@@ -5,6 +5,41 @@ from utils.paths import get_image_path
 
 class Alert:
     _icon_cache = {} # Static cache to keep references alive if needed
+    _active_alerts = {} # Registry: {'category_name': window_instance}
+
+    @staticmethod
+    def _register_and_show(category, popup):
+        """Helper to ensure only one alert of a specific category is active."""
+        if category in Alert._active_alerts:
+            try:
+                if Alert._active_alerts[category].winfo_exists():
+                    Alert._active_alerts[category].destroy()
+            except:
+                pass
+        
+        Alert._active_alerts[category] = popup
+        
+        # Cleanup registry on destroy
+        popup.bind("<Destroy>", lambda e: Alert._unregister(category), add="+")
+
+    @staticmethod
+    def _unregister(category):
+        if category in Alert._active_alerts:
+            # Only delete if it's the same instance (to avoid race conditions)
+            # but since we close the old one before registering, this is usually fine.
+            del Alert._active_alerts[category]
+
+    @staticmethod
+    def close_all():
+        """Force close all active alerts managed by this class."""
+        for cat in list(Alert._active_alerts.keys()):
+            try:
+                window = Alert._active_alerts[cat]
+                if window.winfo_exists():
+                    window.destroy()
+            except:
+                pass
+        Alert._active_alerts.clear()
 
     @staticmethod
     def show(type, message=None, title=None, buttons=None, callbacks=None):
@@ -31,6 +66,8 @@ class Alert:
             return
 
         popup = tk.Toplevel(root)
+        Alert._register_and_show("alert", popup) # Categorize standard alerts
+        
         popup.title(title or type.title())
         popup.attributes("-topmost", True)
         popup.grab_set()
@@ -70,15 +107,16 @@ class Alert:
         icon_path = get_image_path(icon_file)
         
         try:
-            img = Image.open(icon_path)
-            img = img.resize((88, 88), Image.Resampling.LANCZOS)
-            photo = ImageTk.PhotoImage(img)
+            from utils.ImageManager import ImageManager
+            photo = ImageManager.get_static(icon_path, size=(88, 88))
             
-            icon_label = tk.Label(icon_frame, image=photo, bg=bg_color)
-            icon_label.image = photo  # Keep reference
-            icon_label.pack()
+            if photo:
+                icon_label = tk.Label(icon_frame, image=photo, bg=bg_color)
+                icon_label.image = photo  # Keep reference
+                icon_label.pack()
+            else:
+                raise Exception("Image not loaded")
         except Exception as e:
-            pass
             tk.Label(icon_frame, text="!", font=("Arial", 40, "bold"), fg=accent_color, bg=bg_color).pack()
 
         # 5. Title
@@ -226,3 +264,81 @@ class Alert:
             ("Cancel", "#ffffff", on_cancel)
         ]
         Alert.show("info", message, title, buttons=buttons)
+
+    @staticmethod
+    def loading(message="Please wait...", title="Loading"):
+        """
+        Shows a loading alert with animated GIF using ImageManager.
+        """
+        root = tk._default_root
+        if not root:
+            return None
+
+        popup = tk.Toplevel(root)
+        Alert._register_and_show("loading", popup) # Categorize as loading alert
+        
+        popup.title(title)
+        popup.attributes("-topmost", True)
+        popup.grab_set()
+        popup.resizable(False, False)
+        popup.config(bg="#ffffff")
+
+        # Center on screen
+        width, height = 400, 250
+        screen_width, screen_height = popup.winfo_screenwidth(), popup.winfo_screenheight()
+        x, y = (screen_width // 2) - (width // 2), (screen_height // 2) - (height // 2)
+        popup.geometry(f"{width}x{height}+{x}+{y}")
+
+        center_wrapper = tk.Frame(popup, bg="#ffffff")
+        center_wrapper.place(relx=0.5, rely=0.5, anchor="center", relwidth=1.0)
+
+        icon_frame = tk.Frame(center_wrapper, bg="#ffffff", pady=10)
+        icon_frame.pack(fill="x")
+        
+        try:
+            from utils.ImageManager import ImageManager
+            from utils.paths import get_gif_path
+            gif_path = get_gif_path("loading.gif")
+            
+            frames, delay = ImageManager.get_gif(gif_path, size=(88, 88))
+            
+            if frames:
+                icon_label = tk.Label(icon_frame, bg="#ffffff")
+                icon_label.pack()
+                popup._after_id = None
+
+                def update_frame(frame_idx=0):
+                    if not popup.winfo_exists():
+                        return
+                    try:
+                        icon_label.config(image=frames[frame_idx])
+                        popup._after_id = popup.after(delay, lambda: update_frame((frame_idx+1)%len(frames)))
+                    except:
+                        pass
+                
+                update_frame()
+                
+                def on_destroy(event):
+                    if event.widget == popup and hasattr(popup, '_after_id') and popup._after_id:
+                        try:
+                            popup.after_cancel(popup._after_id)
+                        except:
+                            pass
+                popup.bind("<Destroy>", on_destroy, add="+")
+        except:
+            tk.Label(icon_frame, text="⏳", font=("Arial", 40), bg="#ffffff").pack()
+
+        # Title
+        tk.Label(center_wrapper, text=title, font=("Segoe UI", 18, "bold"), bg="#ffffff", fg="#595959").pack(pady=(0, 10))
+        # Message
+        tk.Label(center_wrapper, text=message, font=("Segoe UI", 11), bg="#ffffff", fg="#545454").pack()
+
+        popup.update()
+        return popup
+
+    @staticmethod
+    def custom(message, title="Notice", icon_type="info"):
+        """
+        Shows a custom alert with specified message and icon type.
+        """
+        Alert.show(icon_type, message, title)

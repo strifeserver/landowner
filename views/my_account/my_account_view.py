@@ -107,8 +107,21 @@ class MyAccountView(tk.Frame):
         self.canvas.bind("<Configure>", _on_canvas_configure)
         self.canvas.configure(yscrollcommand=self.scrollbar.set)
 
-        # Mouse wheel support
-        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        # Mouse wheel support - local bind to avoid global conflicts
+        def _bind_mouse(event):
+            self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        
+        def _unbind_mouse(event):
+            try:
+                self.canvas.unbind_all("<MouseWheel>")
+            except:
+                pass
+
+        self.canvas.bind("<Enter>", _bind_mouse)
+        self.canvas.bind("<Leave>", _unbind_mouse)
+        
+        # Ensure we unbind when this widget is destroyed
+        self.bind("<Destroy>", _unbind_mouse)
 
         self.scrollbar.pack(side="right", fill="y")
         self.canvas.pack(side="left", fill="both", expand=True)

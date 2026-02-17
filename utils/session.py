@@ -18,7 +18,7 @@ class Session:
     @classmethod
     def set_user(cls, user):
         cls.current_user = user
-        cls._expires_at = datetime.now() + timedelta(hours=3)
+        cls._expires_at = datetime.now() + timedelta(hours=1)
         cls.save_session()
 
     @classmethod

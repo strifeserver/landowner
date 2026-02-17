@@ -104,6 +104,10 @@ class BaseModel:
                     field_name = field_name.replace("_to", "")
                     where_clauses.append(f"{field_name} <= ?")
                     params.append(value)
+                elif isinstance(value, (list, tuple)):
+                    placeholders = ', '.join(['?'] * len(value))
+                    where_clauses.append(f"{field_name} IN ({placeholders})")
+                    params.extend(value)
                 else:
                     where_clauses.append(f"LOWER({field_name}) LIKE ?")
                     params.append(f"%{str(value).lower()}%")
@@ -317,6 +321,12 @@ class BaseModel:
         kwargs["created_at"] = now
         kwargs["updated_at"] = now
 
+        # Automatically set spreadsheet_sync = 0 if it exists in the model fields
+        # and we are not explicitly setting it (e.g. during a pull/sync)
+        model_fields = getattr(cls, "fields", [])
+        if "spreadsheet_sync" in model_fields and "spreadsheet_sync" not in kwargs:
+            kwargs["spreadsheet_sync"] = 0
+
         # Tracking created_by and updated_by
         try:
             from utils.session import Session
@@ -365,6 +375,12 @@ class BaseModel:
         cursor = conn.cursor()
 
         kwargs["updated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Automatically set spreadsheet_sync = 0 if it exists in the model fields
+        # and we are not explicitly setting it (e.g. during a pull/sync)
+        model_fields = getattr(cls, "fields", [])
+        if "spreadsheet_sync" in model_fields and "spreadsheet_sync" not in kwargs:
+            kwargs["spreadsheet_sync"] = 0
 
         # Tracking updated_by
         try:

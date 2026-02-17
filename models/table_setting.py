@@ -85,7 +85,25 @@ class TableSetting(BaseModel):
 
     @classmethod
     def update(cls, row_id, **kwargs):
-        return super().update_sqlite(DB_PATH, cls.table_name, row_id, **kwargs)
+        print(f"[DEBUG] TableSetting.update called with row_id={row_id}")
+        print(f"[DEBUG] kwargs keys: {list(kwargs.keys())}")
+        print(f"[DEBUG] settings_json in kwargs: {'settings_json' in kwargs}")
+        if 'settings_json' in kwargs:
+            print(f"[DEBUG] settings_json value (first 100 chars): {kwargs['settings_json'][:100]}")
+        
+        result = super().update_sqlite(DB_PATH, cls.table_name, row_id, **kwargs)
+        print(f"[DEBUG] update_sqlite returned: {result}")
+        
+        # Verify the update by reading back
+        import sqlite3
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        cursor.execute(f"SELECT settings_json FROM {cls.table_name} WHERE id = ?", (row_id,))
+        row = cursor.fetchone()
+        conn.close()
+        print(f"[DEBUG] After update, settings_json in DB: {row[0][:100] if row and row[0] else 'NULL'}")
+        
+        return result
 
     @classmethod
     def fetch_by_table_name(cls, table_name):

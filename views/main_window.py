@@ -6,55 +6,91 @@ from views.right_panel import RightPanel
 
 
 class AnimatedLabel(tk.Label):
-    """A Label that can display an animated GIF."""
+    """A Label that can display an animated GIF using ImageManager for caching."""
     def __init__(self, master, file_path, size=(150, 150), **kwargs):
         super().__init__(master, **kwargs)
-        from PIL import Image, ImageTk
-        self.frames = []
-        self.delay = 100
+        from utils.ImageManager import ImageManager
         
-        try:
-            with Image.open(file_path) as img:
-                self.delay = img.info.get('duration', 100)
-                try:
-                    while True:
-                        frame = img.copy()
-                        frame.thumbnail(size, Image.Resampling.LANCZOS)
-                        self.frames.append(ImageTk.PhotoImage(frame))
-                        img.seek(len(self.frames))
-                except EOFError:
-                    pass
-        except Exception as e:
-            print(f"Error loading animated image: {e}")
-
+        self.frames, self.delay = ImageManager.get_gif(file_path, size)
+        
         self.idx = 0
         self._after_id = None
+        self._is_animating = False
+        
         if self.frames:
             self.config(image=self.frames[0])
             if len(self.frames) > 1:
                 self.animate()
+                # Bind visibility events to pause/resume animation
+                self.bind("<Map>", self._resume_animation)
+                self.bind("<Unmap>", self._pause_animation)
         
         self.bind("<Destroy>", lambda e: self.stop_animation())
 
     def animate(self):
-        if not self.winfo_exists():
+        if not self.winfo_exists() or not self.frames:
             return
+            
+        # If not viewable, stop the loop (it will affect restart on Map)
+        if not self.winfo_viewable():
+            self._is_animating = False
+            return
+
+        self._is_animating = True
         self.idx = (self.idx + 1) % len(self.frames)
-        self.config(image=self.frames[self.idx])
-        self._after_id = self.after(self.delay, self.animate)
+        try:
+            self.config(image=self.frames[self.idx])
+            self._after_id = self.after(self.delay, self.animate)
+        except:
+            pass
+
+    def _resume_animation(self, event=None):
+        """Resume animation when window is shown again."""
+        if not self._is_animating and self.frames and len(self.frames) > 1:
+            self.animate()
+
+    def _pause_animation(self, event=None):
+        """Pause animation when window is hidden."""
+        # The next animate call will check winfo_viewable and stop itself, 
+        # but we can also cancel pending after calls here for immediate effect (optional)
+        pass
 
     def stop_animation(self):
         if self._after_id:
-            self.after_cancel(self._after_id)
+            try:
+                self.after_cancel(self._after_id)
+            except:
+                pass
             self._after_id = None
+            self._is_animating = False
 
 class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
-        self.root.title("LandOwner - Main Window")
+        # Custom App Name
+        app_name_setting = Setting.index(filters={"setting_name": "app_name"})
+        app_name = app_name_setting[0].setting_value if app_name_setting else "LandOwner"
+        self.root.title(f"{app_name} - Main Window")
 
+        # Window Size & Centering
         WindowSize = Setting.index(filters={"setting_name": "window_size"})
-        self.root.geometry(WindowSize[0].setting_value if WindowSize else "800x600")
+        size_str = WindowSize[0].setting_value if WindowSize else "800x600"
+        
+        try:
+            width, height = map(int, size_str.split('x'))
+        except ValueError:
+            width, height = 800, 600
+
+        screen_width = self.root.winfo_screenwidth()
+        screen_height = self.root.winfo_screenheight()
+        
+        x_c = int((screen_width / 2) - (width / 2))
+        y_c = int((screen_height / 2) - (height / 2))
+        
+        self.root.geometry(f"{width}x{height}+{x_c}+{y_c}")
+
+        # Global Improvement: Close focus-dependent popups (like datepickers) when clicking outside
+        self.root.bind_all("<Button-1>", lambda e: e.widget.focus_set() if hasattr(e.widget, 'focus_set') else None)
 
         self.root.grid_rowconfigure(0, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
@@ -176,28 +212,24 @@ class MainWindow:
         # Image Logic
         if image_filename:
             try:
-                base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                image_path = os.path.join(base_path, "assets", "images", image_filename)
+                from utils.paths import get_asset_path
+                image_path = get_asset_path("images", image_filename)
                 
                 if os.path.exists(image_path):
                     # 1. Stop and clear previous animated image if it exists
-                    if hasattr(self.user_info_frame, "anim_label") and self.user_info_frame.anim_label:
-                        self.user_info_frame.anim_label.stop_animation()
-                        self.user_info_frame.anim_label.destroy()
-                        self.user_info_frame.anim_label = None
+                    if hasattr(self, "user_anim_label") and self.user_anim_label:
+                        self.user_anim_label.destroy()
+                        self.user_anim_label = None
 
-                    import gc
-
-                    # 2. Use AnimatedLabel to handle both static images and GIFs
-                    self.user_info_frame.anim_label = AnimatedLabel(self.user_info_frame, image_path, size=(150, 150), bg="#e0e0e0")
-                    self.user_info_frame.anim_label.pack(pady=(0, 5))
+                    # 2. Use AnimatedLabel (uses ImageManager internally)
+                    self.user_anim_label = AnimatedLabel(self.user_info_frame, image_path, size=(150, 150), bg="#e0e0e0")
+                    self.user_anim_label.pack(pady=(0, 5))
 
                     # 3. Trigger cleanup
+                    import gc
                     gc.collect()
-                else:
-                    pass
             except Exception as e:
-                pass
+                print(f"Error loading navigation image: {e}")
 
         # Display Header
         lbl_header = tk.Label(
