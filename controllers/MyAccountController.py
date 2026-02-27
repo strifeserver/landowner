@@ -4,6 +4,8 @@ from models.user import User
 import os
 import shutil
 import bcrypt
+from utils.paths import PROFILES_DIR
+from utils.ImageManager import ImageManager
 
 class MyAccountController:
     @staticmethod
@@ -55,17 +57,19 @@ class MyAccountController:
                 photo_path = data["display_photo_path"]
                 ext = os.path.splitext(photo_path)[1]
                 filename = f"user_{user.id}{ext}"
-                dest_dir = os.path.join("assets", "images", "profiles")
-                dest_path = os.path.join(dest_dir, filename)
+                dest_path = os.path.join(PROFILES_DIR, filename)
                 
-                # Copy file to project assets
+                # Copy file to persistent profiles directory
                 shutil.copy2(photo_path, dest_path)
-                update_data["display_photo"] = os.path.join("profiles", filename)
+                update_data["display_photo"] = filename
             except Exception as e:
                 return {"success": False, "message": f"Photo upload failed: {e}"}
 
         if update_data:
             User.update(user.id, **update_data)
+            # Clear image cache to force refresh in UI
+            ImageManager.clear_cache()
+            
             # Refresh session user
             updated_user = User.edit(user.id)
             Session.set_user(updated_user)

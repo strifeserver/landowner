@@ -1,7 +1,7 @@
 # controllers/AccessLevelController.py
 from models.access_level import AccessLevel
 from services.AccessLevelService import AccessLevelService
-from utils.debug import print_r
+
 
 class AccessLevelController:
     model = AccessLevel
@@ -55,7 +55,7 @@ class AccessLevelController:
     @staticmethod
     def update(id, data):
         service = AccessLevelService()   
-        print("AccessLevel Controller Update")
+
         result = service.update(id, data)
         
         if result:
@@ -69,6 +69,6 @@ class AccessLevelController:
     @staticmethod
     def destroy(id):
         service = AccessLevelService()   
-        print("AccessLevel Controller Delete")
+
         result = service.delete(id)
         return {"success": True, "message": "Access Level deleted successfully"} if result else {"success": False, "message": "Failed to delete access level"}

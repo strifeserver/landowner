@@ -7,7 +7,7 @@ class SettingsController:
     @staticmethod
     def index(filters=None, pagination=False, items_per_page=5, page=1, searchAll=None):
         service = SettingsService()
-        # print("DEBUG SETTINGS FIELDS:", Setting.field_definitions)
+
         return service.index(
             filters=filters or {},
             pagination=pagination,
@@ -56,13 +56,13 @@ class SettingsController:
             return {"success": False, "errors": validation}
 
         service = SettingsService()   
-        print("Settings Controller Update")
+
         result = service.update(id, request.get_validated_data())
         return {"success": True, "message": "Setting updated successfully"} if result else {"success": False, "message": "Failed to update setting"}
 
     @staticmethod
     def destroy(id):
         service = SettingsService()   
-        print("Settings Controller Delete")
+
         result = service.delete(id)
         return {"success": True, "message": "Setting deleted successfully"} if result else {"success": False, "message": "Failed to delete setting"}

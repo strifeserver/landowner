@@ -26,7 +26,16 @@ def handle_exception(exc_type, exc_value, exc_traceback):
 # Install exception handler
 sys.excepthook = handle_exception
 
+def run_migrations():
+    """Run database migrations silently on startup."""
+    try:
+        import migrate
+        migrate.main()
+    except Exception as e:
+        logging.error(f"Migration error on startup: {str(e)}")
+
 if __name__ == "__main__":
+    run_migrations()
     try:
         # ALWAYS show login view on startup as requested
         LoginView(AuthController)

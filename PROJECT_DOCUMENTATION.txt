@@ -1,5 +1,5 @@
 ================================================================================
-                    LANDOWNER PROJECT DOCUMENTATION
+                    cms PROJECT DOCUMENTATION
 ================================================================================
 Generated: 2026-02-08
 Version: 1.0
@@ -10,7 +10,7 @@ Architecture: MVC (Model-View-Controller)
                          AI ASSISTANT PROMPT
 ================================================================================
 
-You are assisting with the "Landowner" project - a Python-based desktop 
+You are assisting with the "cms" project - a Python-based desktop 
 application using Tkinter for the UI and SQLite for data persistence. This is 
 a modular, extensible system with a dynamic CRUD builder that follows Laravel-
 inspired conventions.
@@ -53,7 +53,7 @@ When suggesting improvements or new features, ensure they:
                          PROJECT OVERVIEW
 ================================================================================
 
-PROJECT NAME: Landowner
+PROJECT NAME: cms
 PURPOSE: A modular desktop application framework for managing business data 
          with role-based access control, dynamic CRUD generation, and 
          comprehensive audit trails.
@@ -79,7 +79,7 @@ KEY FEATURES:
                       DIRECTORY STRUCTURE
 ================================================================================
 
-landowner/
+cms/
 │
 ├── main.py                    # Application entry point
 ├── migrate.py                 # Database migration runner
@@ -250,7 +250,7 @@ COLUMNS:
 
 EXAMPLES:
   - copyright: "© 2026 Your Company"
-  - app_name: "Landowner System"
+  - app_name: "cms System"
   - theme: "light" (options: ["light", "dark"])
 
 ------------------------------------------------------------------------------
@@ -670,7 +670,7 @@ PYTHON VERSION:
                       LICENSE & CREDITS
 ================================================================================
 
-PROJECT: Landowner
+PROJECT: cms
 AUTHOR: [Your Name/Organization]
 LICENSE: [Specify license - MIT, GPL, Proprietary, etc.]
 YEAR: 2026

@@ -5,7 +5,7 @@ import sys
 # python migrate.py --reset
 
 BASE_DIR = os.path.dirname(__file__)
-DB_PATH = os.path.join(BASE_DIR, "data", "data.db")
+from models.db_config import DB_PATH
 MIGRATIONS_DIR = os.path.join(BASE_DIR, "migrations")
 
 

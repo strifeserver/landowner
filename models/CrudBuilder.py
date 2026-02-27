@@ -2,8 +2,8 @@
 import os
 import json
 from models.base_model import BaseModel
+from models.db_config import DB_PATH
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'data.db')
 
 class CrudBuilder(BaseModel):
     db_path = DB_PATH

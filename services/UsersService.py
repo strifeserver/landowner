@@ -23,9 +23,11 @@ class UsersService(BaseService):
                         sheet_service = GoogleSheetService()
                         success, msg = sheet_service.sync_user_to_sheet(user)
                         if not success:
-                            print(f"Warning: Failed to sync user to sheet: {msg}")
+                            # TODO: Log this warning
+                            pass
                 except Exception as e:
-                    print(f"Warning: Error syncing user to sheet: {str(e)}")
+                    # TODO: Log error
+                    pass
         
         return result
 
@@ -43,8 +45,10 @@ class UsersService(BaseService):
                     sheet_service = GoogleSheetService()
                     success, msg = sheet_service.sync_user_to_sheet(user)
                     if not success:
-                        print(f"Warning: Failed to sync user to sheet: {msg}")
+                        # TODO: Log this warning
+                        pass
                 except Exception as e:
-                    print(f"Warning: Error syncing user to sheet: {str(e)}")
+                    # TODO: Log error
+                    pass
         
         return result

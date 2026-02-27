@@ -64,12 +64,25 @@ class LoginView:
         self.root = tk.Tk()
         self.root.title("Login")
         
+        # Set Application Icon
+        try:
+            import os
+            # Calculate base path: views/login/login_view.py -> views/login -> views -> root
+            base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            icon_path = os.path.join(base_dir, "assets", "images", "Strife.ico")
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
+        except Exception as e:
+            # print(f"Failed to set icon: {e}")
+            pass
+
+        
         # Load Settings for Branding
         from models.Setting import Setting
         app_name_set = Setting.index(filters={"setting_name": "app_name"})
         app_logo_set = Setting.index(filters={"setting_name": "app_logo"})
         
-        app_name = app_name_set[0].setting_value if app_name_set else "LandOwner"
+        app_name = app_name_set[0].setting_value if app_name_set else "MerchantCMS"
         logo_filename = app_logo_set[0].setting_value if app_logo_set else None
 
         self.root.geometry("400x500")

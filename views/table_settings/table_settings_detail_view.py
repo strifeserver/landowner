@@ -2,6 +2,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import json
+import sqlite3
+import os
+from models.db_config import DB_PATH
 
 class TableSettingsDetailView(tk.Toplevel):
     def __init__(self, parent, item_id=None, callback=None, initial_data=None, **kwargs):
@@ -46,9 +49,6 @@ class TableSettingsDetailView(tk.Toplevel):
 
     def _discover_columns(self):
         """Try to fetch column names from the database for this table."""
-        import sqlite3
-        import os
-        
         # Use robust getter for table_name
         if isinstance(self.initial_data, dict):
             table_name = self.initial_data.get('table_name')
@@ -57,10 +57,9 @@ class TableSettingsDetailView(tk.Toplevel):
             
         if not table_name:
             return
-        
-        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "data.db")
+
         try:
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             cursor.execute(f"PRAGMA table_info({table_name})")
             cols = cursor.fetchall()

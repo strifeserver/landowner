@@ -1,0 +1,9 @@
+2026-02-17 20:40:17,316 - ERROR - Migration error on startup: UNIQUE constraint failed: access_levels.id
+2026-02-17 20:40:32,181 - ERROR - Migration error on startup: UNIQUE constraint failed: access_levels.id
+2026-02-17 20:42:33,823 - ERROR - Migration error on startup: UNIQUE constraint failed: access_levels.id
+2026-02-17 20:43:16,398 - ERROR - Migration error on startup: UNIQUE constraint failed: access_levels.id
+2026-02-17 21:37:58,931 - ERROR - Migration error on startup: UNIQUE constraint failed: access_levels.id
+2026-02-17 21:44:45,200 - ERROR - Migration error on startup: UNIQUE constraint failed: access_levels.id
+2026-02-18 08:57:29,107 - ERROR - Migration error on startup: UNIQUE constraint failed: access_levels.id
+2026-02-18 09:02:38,526 - ERROR - Migration error on startup: UNIQUE constraint failed: access_levels.id
+2026-02-18 09:04:49,975 - ERROR - Migration error on startup: UNIQUE constraint failed: access_levels.id

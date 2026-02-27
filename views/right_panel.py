@@ -212,7 +212,7 @@ class RightPanel(tk.Frame):
         # Left label (Settings Based)
         from models.Setting import Setting
         copy_set = Setting.index(filters={"setting_name": "copyright"})
-        copyright_text = copy_set[0].setting_value if copy_set else "LandOwner © 2025"
+        copyright_text = copy_set[0].setting_value if copy_set else "MerchantCMS © 2025"
 
         tk.Label(
             footer_frame,

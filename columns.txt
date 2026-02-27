@@ -1,0 +1,1 @@
+id\nshop_name\nshop_link\nshop_image\ndescription\nemail\nmobile_number\naccount_id\norder_number_prefix\norder_number_padding\ncurrency\nmerchant_status\ncreated_at\nupdated_at\ncreated_by\nupdated_by\nmerchant_users\nmerchant_service_json\nmerchant_sheet_id\ngoogle_sheet_sync\nspreadsheet_sync

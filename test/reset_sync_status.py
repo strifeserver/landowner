@@ -1,7 +1,4 @@
-import sqlite3
-import os
-
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'data.db')
+from models.db_config import DB_PATH
 
 def reset_sync_status():
     print(f"Connecting to database at: {DB_PATH}")

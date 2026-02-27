@@ -128,29 +128,29 @@ class SyncModal(tk.Toplevel):
         
         if sync_all and not selected:
              # Should practically not happen due to toggle_all, unless user manually unchecks.
-             # If user unchecks sub-items, we still treat it as "Sync All" logic for whatever IS selected?
-             # Or does "All" imply "All Entities"? 
-             # "all orders, payments, expenses" - implies all entities.
              pass
 
         # Show loading
-        loading = Alert.loading(message=f"Syncing {', '.join(selected)}...", title="Cloud Sync")
+        loading_popup = Alert.loading(message=f"Syncing {', '.join(selected)}...", title="Cloud Sync")
         
-        def execute():
-            try:
-                from controllers.CloudSyncController import CloudSyncController
-                if task_type == 'push':
-                    result = CloudSyncController.push(selected, sync_all=sync_all)
-                else:
-                    # Pull doesn't support sync_all yet, pass selected only
-                    result = CloudSyncController.pull(selected)
-                
-                # Close loading in main thread
-                self.after(0, lambda: self.finish_task(result, task_type, loading))
-            except Exception as e:
-                self.after(0, lambda: self.finish_task({"success": False, "message": str(e)}, task_type, loading))
+        from utils.thread_manager import ThreadManager
+        if not hasattr(self, 'thread_manager'):
+            self.thread_manager = ThreadManager(self)
 
-        threading.Thread(target=execute, daemon=True).start()
+        def execute():
+            from controllers.CloudSyncController import CloudSyncController
+            if task_type == 'push':
+                return CloudSyncController.push(selected, sync_all=sync_all)
+            else:
+                return CloudSyncController.pull(selected)
+                
+        def on_complete(result):
+            self.finish_task(result, task_type, loading_popup)
+            
+        def on_error(e):
+            self.finish_task({"success": False, "message": str(e)}, task_type, loading_popup)
+
+        self.thread_manager.run_in_thread(execute, on_complete, on_error)
 
     def finish_task(self, result, task_type, loading_popup):
         # Ensure UI updates happen on the main thread

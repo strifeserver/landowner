@@ -13,7 +13,7 @@ def migrate():
         {
             "id": 1,
             "setting_name": "App Name",
-            "setting_value": "LandOwner",
+            "setting_value": "cms",
             "setting_options": "",
         },
         {
@@ -31,7 +31,7 @@ def migrate():
         {
             "id": 4,
             "setting_name": "default_current_logged_in_display_header",
-            "setting_value": "LandOwner",
+            "setting_value": "cms",
             "setting_options": "",
         },
         {
@@ -55,13 +55,13 @@ def migrate():
         {
             "id": 8,
             "setting_name": "app_name",
-            "setting_value": "LandOwner",
+            "setting_value": "cms",
             "setting_options": "",
         },
         {
             "id": 9,
             "setting_name": "copyright",
-            "setting_value": "LandOwner © 2026",
+            "setting_value": "cms © 2026",
             "setting_options": "",
         },
     ]

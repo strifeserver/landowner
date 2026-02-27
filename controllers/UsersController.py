@@ -1,7 +1,7 @@
 from models.user import User
 from app_requests.UsersRequest import UsersRequest
 from services.UsersService import UsersService
-from utils.debug import print_r
+
 import bcrypt
 
 class UsersController:
@@ -73,13 +73,13 @@ class UsersController:
             return {"success": False, "errors": validation}
 
         service = UsersService()   
-        print("Users Controller Update")
+
         result = service.update(id, request.get_validated_data())
         return {"success": True, "message": "User updated successfully"} if result else {"success": False, "message": "Failed to update user"}
 
     @staticmethod
     def destroy(id):
         service = UsersService()   
-        print("Users Controller Delete")
+
         result = service.delete(id)
         return {"success": True, "message": "User deleted successfully"} if result else {"success": False, "message": "Failed to delete user"}

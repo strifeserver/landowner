@@ -238,18 +238,38 @@ QUICK TROUBLESHOOT CHECKLIST
         tk.Label(row, text=value, font=("Arial", 9), bg="#f1f5f9", fg=self.colors["text"], anchor="w").pack(side="left", fill="x", expand=True)
 
     def on_validate(self):
-        # Loading state
-        self.btn_validate.config(state="disabled", text="Validating...")
-        self.update() # Force UI update
+        # Import helpers locally if preferred or at top-level
+        from utils.thread_manager import ThreadManager
+        from utils.alert import Alert
         
-        # Call controller
-        if self.controller:
-            result = self.controller.validate_connection_logic()
+        # Initialize thread manager if not exists
+        if not hasattr(self, 'thread_manager'):
+            self.thread_manager = ThreadManager(self)
+
+        # UI Disable
+        self.btn_validate.config(state="disabled")
+        
+        # Show Overlay
+        loading_popup = Alert.loading("Connecting to Google Sheets...\nPlease wait.", "Connecting")
+        
+        def run_validation():
+            if self.controller:
+                return self.controller.validate_connection_logic()
+            return {"success": False, "message": "Controller not linked."}
+            
+        def on_complete(result):
+            if loading_popup and loading_popup.winfo_exists():
+                loading_popup.destroy()
+            self.btn_validate.config(state="normal")
             self.show_results(result)
-        else:
-            messagebox.showerror("Error", "Controller not linked.")
-        
-        self.btn_validate.config(state="normal", text="Validate Connection")
+            
+        def on_error(e):
+            if loading_popup and loading_popup.winfo_exists():
+                loading_popup.destroy()
+            self.btn_validate.config(state="normal")
+            messagebox.showerror("Error", f"An unexpected error occurred: {str(e)}")
+
+        self.thread_manager.run_in_thread(run_validation, on_complete, on_error)
 
     def show_results(self, result):
         # Clear previous results

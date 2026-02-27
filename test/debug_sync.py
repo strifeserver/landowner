@@ -1,8 +1,4 @@
-import sqlite3
-import os
-import json
-
-DB_PATH = r'h:\Personal\adminpanel\data\data.db'
+from models.db_config import DB_PATH
 
 def check_db():
     if not os.path.exists(DB_PATH):

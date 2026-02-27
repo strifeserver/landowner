@@ -4,30 +4,59 @@
 *.sqlite
 *.sqlite3
 data/data.db
+data/dataBU.db
+
+# Profiles/Data
+profiles/
+data/profiles/
+session.json
+data/session.json
 
 # Logs
 *.log
 debug_output.txt
 error.txt
+python.log
 
 # OS
 .DS_Store
 Thumbs.db
+*.swp
+desktop.ini
 
 # Virtual Environment
 venv/
 env/
 .env
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Pycache (already partially covered but good to be explicit)
+# Python
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.pyd
+*.pyo
+*.so
 
 # IDEs
 .idea/
 .vscode/
+.project
+.pydevproject
+.settings/
 
-# Build
+# Build and Distribution
 dist/
 build/
+dist_patcher/
+build_patcher/
 *.spec
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Miscellaneous
+users_settings.json
+users_settings_full.json

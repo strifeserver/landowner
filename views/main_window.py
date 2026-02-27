@@ -1,76 +1,29 @@
-# main_window.py
+import os
 import tkinter as tk
 from models.navigation import Navigation
 from models.Setting import Setting
 from views.right_panel import RightPanel
-
-
-class AnimatedLabel(tk.Label):
-    """A Label that can display an animated GIF using ImageManager for caching."""
-    def __init__(self, master, file_path, size=(150, 150), **kwargs):
-        super().__init__(master, **kwargs)
-        from utils.ImageManager import ImageManager
-        
-        self.frames, self.delay = ImageManager.get_gif(file_path, size)
-        
-        self.idx = 0
-        self._after_id = None
-        self._is_animating = False
-        
-        if self.frames:
-            self.config(image=self.frames[0])
-            if len(self.frames) > 1:
-                self.animate()
-                # Bind visibility events to pause/resume animation
-                self.bind("<Map>", self._resume_animation)
-                self.bind("<Unmap>", self._pause_animation)
-        
-        self.bind("<Destroy>", lambda e: self.stop_animation())
-
-    def animate(self):
-        if not self.winfo_exists() or not self.frames:
-            return
-            
-        # If not viewable, stop the loop (it will affect restart on Map)
-        if not self.winfo_viewable():
-            self._is_animating = False
-            return
-
-        self._is_animating = True
-        self.idx = (self.idx + 1) % len(self.frames)
-        try:
-            self.config(image=self.frames[self.idx])
-            self._after_id = self.after(self.delay, self.animate)
-        except:
-            pass
-
-    def _resume_animation(self, event=None):
-        """Resume animation when window is shown again."""
-        if not self._is_animating and self.frames and len(self.frames) > 1:
-            self.animate()
-
-    def _pause_animation(self, event=None):
-        """Pause animation when window is hidden."""
-        # The next animate call will check winfo_viewable and stop itself, 
-        # but we can also cancel pending after calls here for immediate effect (optional)
-        pass
-
-    def stop_animation(self):
-        if self._after_id:
-            try:
-                self.after_cancel(self._after_id)
-            except:
-                pass
-            self._after_id = None
-            self._is_animating = False
+from views.components.animated_label import AnimatedLabel
 
 class MainWindow:
     def __init__(self):
         self.root = tk.Tk()
         # Custom App Name
         app_name_setting = Setting.index(filters={"setting_name": "app_name"})
-        app_name = app_name_setting[0].setting_value if app_name_setting else "LandOwner"
+        app_name = app_name_setting[0].setting_value if app_name_setting else "MerchantCMS"
         self.root.title(f"{app_name} - Main Window")
+
+        # Set Application Icon
+        try:
+            import os
+            # Calculate base path: views/main_window.py -> views -> root
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            icon_path = os.path.join(base_dir, "assets", "images", "Strife.ico")
+            if os.path.exists(icon_path):
+                self.root.iconbitmap(icon_path)
+        except Exception as e:
+            print(f"Failed to set icon: {e}")
+
 
         # Window Size & Centering
         WindowSize = Setting.index(filters={"setting_name": "window_size"})
@@ -184,7 +137,6 @@ class MainWindow:
     # Navigation Loader
     # --------------------------------------------------
     def load_navigation(self):
-        import os
         from utils.session import Session
         from models.access_level import AccessLevel
         from models.Setting import Setting
@@ -202,34 +154,45 @@ class MainWindow:
         image_setting = Setting.index(filters={"setting_name": "default_current_logged_in_image"})
 
         user = Session.get_user()
-        display_header = user.name if user and user.name else (header_setting[0].setting_value if header_setting else "LandOwner")
+        display_header = user.name if user and user.name else (header_setting[0].setting_value if header_setting else "MerchantCMS")
         sub_header = user.access_level_name if user else (subheader_setting[0].setting_value if subheader_setting else "Admin Panel")
         
-        # Priority: 1. User display_photo, 2. setting default
-        image_filename = user.display_photo if user and user.display_photo else (image_setting[0].setting_value if image_setting else None)
+        # Priority: 1. User display_photo, 2. setting default, 3. hardcoded placeholder
+        image_filename = user.display_photo if user and user.display_photo else (image_setting[0].setting_value if image_setting else "placeholder_user.png")
         
-
         # Image Logic
-        if image_filename:
-            try:
-                from utils.paths import get_asset_path
-                image_path = get_asset_path("images", image_filename)
+        try:
+            from utils.paths import get_asset_path, PROFILES_DIR, get_image_path
+            image_path = None
+            
+            # Resolve the path
+            if image_filename:
+                # 1. Try persistent profile directory first
+                clean_filename = os.path.basename(image_filename)
+                persistent_path = os.path.join(PROFILES_DIR, clean_filename)
                 
-                if os.path.exists(image_path):
-                    # 1. Stop and clear previous animated image if it exists
-                    if hasattr(self, "user_anim_label") and self.user_anim_label:
-                        self.user_anim_label.destroy()
-                        self.user_anim_label = None
+                if os.path.exists(persistent_path):
+                    image_path = persistent_path
+                else:
+                    # 2. Try bundled assets folder
+                    asset_filename = image_filename if "profiles" in image_filename else os.path.join("profiles", image_filename)
+                    bundled_path = get_image_path(asset_filename)
+                    if os.path.exists(bundled_path):
+                        image_path = bundled_path
 
-                    # 2. Use AnimatedLabel (uses ImageManager internally)
-                    self.user_anim_label = AnimatedLabel(self.user_info_frame, image_path, size=(150, 150), bg="#e0e0e0")
-                    self.user_anim_label.pack(pady=(0, 5))
+            # 3. Final Fallback to user placeholder if still not found
+            if not image_path or not os.path.exists(image_path):
+                image_path = get_image_path("placeholder_user.png")
 
-                    # 3. Trigger cleanup
-                    import gc
-                    gc.collect()
-            except Exception as e:
-                print(f"Error loading navigation image: {e}")
+            if image_path and os.path.exists(image_path):
+                # Use AnimatedLabel (uses ImageManager internally)
+                self.user_anim_label = AnimatedLabel(self.user_info_frame, image_path, size=(120, 120), bg="#e0e0e0")
+                self.user_anim_label.pack(pady=(0, 5))
+                
+                import gc
+                gc.collect()
+        except Exception as e:
+            print(f"Error loading navigation image: {e}")
 
         # Display Header
         lbl_header = tk.Label(
@@ -269,6 +232,11 @@ class MainWindow:
                 allowed_ids = access_level.get_permissions_list('view')
                 # Filter items: keep if item.id is in allowed_ids
                 menu_items = [item for item in all_menu_items if item.id in allowed_ids]
+        
+        # Filter out CrudBuilder for compiled apps
+        import sys
+        if getattr(sys, 'frozen', False):
+             menu_items = [item for item in menu_items if item.controller != "CrudBuilderController"]
         
         # Clear existing menu container items
         for widget in self.menu_container.winfo_children():

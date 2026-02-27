@@ -2,10 +2,8 @@
 import os
 from datetime import datetime
 from models.base_model import BaseModel
-from utils.debug import print_r
-DB_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "data", "data.db"
-)
+
+from models.db_config import DB_PATH
 
 
 class AccessLevel(BaseModel):
@@ -84,7 +82,6 @@ class AccessLevel(BaseModel):
             
         csv_str = ",".join(str(i) for i in id_list)
         setattr(self, permission_type, csv_str)
-
 
     @classmethod
     def index(
@@ -206,8 +203,6 @@ class AccessLevel(BaseModel):
             debug=debug,
         )
 
-
-
     @classmethod
     def update(cls, id, **kwargs):
         return super().update_sqlite(DB_PATH, cls.table_name, id, **kwargs)
@@ -227,7 +222,7 @@ class AccessLevel(BaseModel):
                 {"label": al.access_level_name, "value": al.id} for al in access_levels
             ]
         except Exception as e:
-            print("Failed to load access level options:", e)
+
             field_defs["access_level_name"]["options"] = []
 
         return field_defs

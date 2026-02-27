@@ -1,0 +1,48 @@
+from models.{{ class_name }} import {{ class_name }}
+from services.{{ class_name }}Service import {{ class_name }}Service
+
+class {{ class_name }}Controller:
+    model = {{ class_name }}
+    @staticmethod
+    def index(filters=None, pagination=False, items_per_page=10, page=1, searchAll=None):
+        service = {{ class_name }}Service()
+        return service.index(
+            filters=filters or {},
+            pagination=pagination,
+            items_per_page=items_per_page,
+            page=page,
+            search=searchAll
+        )
+
+    @staticmethod
+    def create():
+        return {
+            "view_type": "generic",
+            "field_definitions": {{ class_name }}.get_dynamic_field_definitions()
+        }
+
+    @staticmethod
+    def store(data):
+        service = {{ class_name }}Service()        
+        result = service.store(data)
+        return {"success": True, "message": "{{ name }} created successfully"} if result else {"success": False, "message": "Failed to create {{ name | lower }}"}
+
+    @staticmethod
+    def edit(data):
+        return {
+            "view_type": "generic",
+            "field_definitions": {{ class_name }}.get_dynamic_field_definitions(),
+            "initial_data": data
+        }
+
+    @staticmethod
+    def update(id, data):
+        service = {{ class_name }}Service()   
+        result = service.update(id, data)
+        return {"success": True, "message": "{{ name }} updated successfully"} if result else {"success": False, "message": "Failed to update {{ name | lower }}"}
+
+    @staticmethod
+    def destroy(id):
+        service = {{ class_name }}Service()   
+        result = service.delete(id)
+        return {"success": True, "message": "{{ name }} deleted successfully"} if result else {"success": False, "message": "Failed to delete {{ name | lower }}"}

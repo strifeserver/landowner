@@ -1,7 +1,7 @@
 import os
 from models.base_model import BaseModel
+from models.db_config import DB_PATH
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'data.db')
 
 class Navigation(BaseModel):
     table_name = "navigations"
@@ -198,7 +198,7 @@ class Navigation(BaseModel):
             conn.close()
             return False
         except Exception as e:
-            print(f"Error moving navigation up: {e}")
+
             return False
 
     @classmethod
@@ -241,5 +241,5 @@ class Navigation(BaseModel):
             conn.close()
             return False
         except Exception as e:
-            print(f"Error moving navigation down: {e}")
+
             return False

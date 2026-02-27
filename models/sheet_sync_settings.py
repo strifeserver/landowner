@@ -1,8 +1,8 @@
 # models/sheet_sync_settings.py
 import os
 from models.base_model import BaseModel
+from models.db_config import DB_PATH
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "data", "data.db")
 
 class SheetSyncSettings(BaseModel):
     table_name = "sheet_sync_settings"

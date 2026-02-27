@@ -1,14 +1,12 @@
 import os
+import sys
 from datetime import datetime
 from models.base_model import BaseModel
-from utils.debug import print_r
-DB_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "data", "data.db"
-)
+
+from models.db_config import DB_PATH
 
 class Setting(BaseModel):
     
-    db_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'data.db')
     table_name = "settings"
     fields = ['id', 'setting_name', 'setting_value', 'setting_options', 'created_at', 'updated_at', 'created_by', 'updated_by']
 

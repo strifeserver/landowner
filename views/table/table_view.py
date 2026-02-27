@@ -244,6 +244,16 @@ class TableView(tk.Frame):
         else:
             self.delete_btn = None
 
+        # Export Data Button (Specifically for Orders)
+        if self.table_name == "orders":
+            tk.Button(
+                title_frame,
+                text="Export Data",
+                command=self._open_export_modal,
+                bg="#e8f5e9",
+                width=12
+            ).pack(side=tk.RIGHT, padx=10)
+
         # Add Move Up/Down buttons for Navigations module only
         if title == "Navigations":
             self.move_down_btn = tk.Button(
@@ -524,15 +534,6 @@ class TableView(tk.Frame):
             state=btn_state
         ).pack(side="left", padx=5)
         
-        # Show validation warning if not validated
-        if not is_validated:
-            tk.Label(
-                parent,
-                text="(Sheet Validation Required)",
-                fg="red",
-                font=("Arial", 9)
-            ).pack(side="left", padx=5)
-        
         # Display unsynced orders count
         try:
             from controllers.OrdersController import OrdersController
@@ -563,6 +564,10 @@ class TableView(tk.Frame):
     def _open_sync_modal(self):
         from views.table.sync_modal import SyncModal
         SyncModal(self.winfo_toplevel(), self)
+
+    def _open_export_modal(self):
+        from views.table.export_modal import ExportModal
+        ExportModal(self.winfo_toplevel(), self)
 
     def cleanup(self):
         """Releases references and clears data for memory optimization."""

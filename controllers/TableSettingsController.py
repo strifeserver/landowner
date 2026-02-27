@@ -75,12 +75,11 @@ class TableSettingsController:
 
     @staticmethod
     def update(id, data):
-        print(f"[DEBUG] TableSettingsController.update called with ID={id}")
-        print(f"[DEBUG] Data keys: {list(data.keys()) if isinstance(data, dict) else 'not a dict'}")
-        if isinstance(data, dict) and 'settings_json' in data:
-            print(f"[DEBUG] settings_json length: {len(data['settings_json'])} chars")
+
+
+
         
         service = TableSettingsService()
         result = service.update(id, data)
-        print(f"[DEBUG] Update result: {result}")
+
         return result

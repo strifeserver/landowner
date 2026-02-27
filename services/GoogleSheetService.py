@@ -1,6 +1,9 @@
+import os
+import sqlite3
 import json
 import logging
 from models.Setting import Setting
+from models.db_config import DB_PATH
 
 class GoogleSheetService:
     def __init__(self):
@@ -84,7 +87,7 @@ class GoogleSheetService:
             # We'll try to write to a dummy range (e.g. 'Properties!Z999' or a new sheet)
             # Better to just try updating a specific cell and then clearing it if possible, 
             # but we don't want to mess up the user's data.
-            # We'll try to append a row to a sheet named 'LandOwner_Test' or just use the first sheet's A1 if it's empty?
+            # We'll try to append a row to a sheet named 'cms_Test' or just use the first sheet's A1 if it's empty?
             # Safer: just check if we can update the title or something? 
             # No, let's try to append a value to a hidden range.
             
@@ -426,13 +429,20 @@ class GoogleSheetService:
         except Exception as e:
             return {}, -1
 
-    def update_or_append_data(self, sheet_name, values, record_id, id_col_idx, id_to_row, service_json=None, sheet_id=None):
+    def update_or_append_data(self, sheet_name, values, record_id, id_col_idx, id_to_row, service_json=None, sheet_id=None, google_row_index=None):
         """
         Updates a row if record_id exists in id_to_row, otherwise appends.
+        Returns: (success, message, row_number)
         """
         try:
             service, spreadsheet_id = self.get_service(service_json, sheet_id)
-            row_num = id_to_row.get(str(record_id))
+            row_num = None
+            
+            # Prioritize google_row_index if available
+            if google_row_index and str(google_row_index).isdigit() and int(google_row_index) > 0:
+                row_num = int(google_row_index)
+            else:
+                row_num = id_to_row.get(str(record_id))
             
             if row_num:
                 # UPDATE
@@ -443,18 +453,40 @@ class GoogleSheetService:
                     valueInputOption='USER_ENTERED',
                     body={'values': values}
                 ).execute()
-                return True, "Data updated successfully."
+                return True, "Data updated successfully.", row_num
             else:
                 # APPEND
-                service.spreadsheets().values().append(
+                result = service.spreadsheets().values().append(
                     spreadsheetId=spreadsheet_id,
                     range=f"'{sheet_name}'!A:A",
                     valueInputOption='USER_ENTERED',
-                    body={'values': values}
+                    body={'values': values},
+                    includeValuesInResponse=False  # We just need the updates
                 ).execute()
-                return True, "Data appended successfully."
+                
+                # Extract new row number from updatedRange
+                # Format: "Sheet1!A10:Z10"
+                new_row_num = 0
+                updated_range = result.get('updates', {}).get('updatedRange')
+                if updated_range:
+                    try:
+                        # Split by '!' then take the part after (e.g., A10:Z10)
+                        # Then take the first digits found
+                        import re
+                        match = re.search(r'!A(\d+)', updated_range)
+                        if match:
+                             new_row_num = int(match.group(1))
+                        else:
+                             # Fallback regex just in case col isn't A
+                             match = re.search(r'![A-Z]+(\d+)', updated_range)
+                             if match:
+                                 new_row_num = int(match.group(1))
+                    except:
+                        pass
+                
+                return True, "Data appended successfully.", new_row_num
         except Exception as e:
-            return False, f"Error in update_or_append to '{sheet_name}': {str(e)}"
+            return False, f"Error in update_or_append to '{sheet_name}': {str(e)}", 0
 
     def merge_cells(self, sheet_name, start_row, end_row, start_col, end_col, service_json=None, sheet_id=None):
         """
@@ -580,7 +612,6 @@ class GoogleSheetService:
             import os
             
             # Get unsynced orders
-            DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'data.db')
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             
@@ -590,15 +621,19 @@ class GoogleSheetService:
             if custom_headers:
                 # Build dynamic query
                 cols_str = ", ".join(custom_cols)
-                query = f"SELECT id, {cols_str} FROM orders WHERE 1=1"
+                # Ensure we select google_row_index at the end
+                query = f"SELECT id, {cols_str}, google_row_index FROM orders WHERE 1=1"
                 headers = custom_headers
-                # Add metadata cols if not present? 
-                # User configures ALL columns. If they omit 'Spreadsheet Sync', it won't show.
-                # BUT we need to ensure we select 'id' to update the record.
-                # The query above selects 'id' explicitly first.
-                # The 'row_data' mapping needs to match 'headers'.
             else:
-                query = "SELECT * FROM orders WHERE 1=1"
+                # Explicitly list columns to sync, excluding google_row_index from the sync data
+                db_cols = ['id', 'order_number', 'customer_name', 'customer_id', 'order_status', 'payment_status', 
+                           'shipping_reference_link', 'shipping_reference_number', 'shipping_notes', 'order_notes', 'merchant_id', 
+                           'sub_total_amount', 'discount_amount', 'shipping_fee', 'total_amount', 'ordered_at', 'customer_location', 
+                           'spreadsheet_sync', 'created_at', 'updated_at', 'created_by', 'updated_by']
+                
+                cols_str = ", ".join(db_cols)
+                query = f"SELECT {cols_str}, google_row_index FROM orders WHERE 1=1"
+                
                 # Define default headers
                 headers = ['ID', 'Order Number', 'Customer Name', 'Customer ID', 'Order Status', 'Payment Status', 
                            'Shipping Ref Link', 'Shipping Ref Number', 'Shipping Notes', 'Order Notes', 'Merchant ID', 
@@ -617,12 +652,6 @@ class GoogleSheetService:
             cursor.execute(query, params)
             rows = cursor.fetchall()
 
-            # Define headers
-            # headers = ['ID', 'Order Number', 'Customer Name', 'Customer ID', 'Order Status', 'Payment Status', 
-            #            'Shipping Ref Link', 'Shipping Ref Number', 'Shipping Notes', 'Order Notes', 'Merchant ID', 
-            #            'Sub Total', 'Discount', 'Shipping Fee', 'Total Amount', 'Ordered At', 'Customer Location', 
-            #            'Spreadsheet Sync', 'Created At', 'Updated At', 'Created By', 'Updated By']
-            
             # Ensure 'Orders' sheet exists
             ok, msg = self.ensure_sheet('Orders', headers, service_json, sheet_id)
             if not ok:
@@ -635,23 +664,47 @@ class GoogleSheetService:
             
             # Sync to Google Sheets
                 
-            # Fetch existing data for duplicate check
-            id_to_row, id_col_idx = self.get_sheet_id_map('Orders', service_json, sheet_id)
+            # Fetch existing data for duplicate check ONLY if we have rows without google_row_index
+            # Optimization: Check if any row needs id_to_row mapping
+            needs_sheet_map = False
+            for row in rows:
+                g_index = row[-1]
+                if not g_index:
+                    needs_sheet_map = True
+                    break
+            
+            id_to_row = {}
+            id_col_idx = -1
+            
+            if needs_sheet_map:
+                id_to_row, id_col_idx = self.get_sheet_id_map('Orders', service_json, sheet_id)
 
             synced_count = 0
             for row in rows:
                 order_id = row[0]
+                g_index = row[-1]
                 
-                # Prepare data for push
+                # Prepare data for push (exclude last col which is google_row_index)
                 if custom_headers:
-                    row_data = [val if val is not None else '' for val in row[1:]]
+                    # id is first, then custom cols, then google_row_index
+                    # row_data should be row[1:-1]
+                    row_data = [val if val is not None else '' for val in row[1:-1]]
                 else:
-                    row_data = [val if val is not None else '' for val in row]
+                    # db_cols (including id), then google_row_index
+                    # row_data should be row[:-1]
+                    row_data = [val if val is not None else '' for val in row[:-1]]
 
-                ok, msg = self.update_or_append_data('Orders', [row_data], order_id, id_col_idx, id_to_row, service_json, sheet_id)
+                ok, msg, new_row_num = self.update_or_append_data('Orders', [row_data], order_id, id_col_idx, id_to_row, service_json, sheet_id, google_row_index=g_index)
                     
                 if ok:
-                    cursor.execute("UPDATE orders SET spreadsheet_sync = 1 WHERE id = ?", (order_id,))
+                    updates = ["spreadsheet_sync = 1"]
+                    params = []
+                    if new_row_num:
+                        updates.append("google_row_index = ?")
+                        params.append(new_row_num)
+                    
+                    params.append(order_id)
+                    cursor.execute(f"UPDATE orders SET {', '.join(updates)} WHERE id = ?", params)
                     synced_count += 1
             
             conn.commit()
@@ -667,10 +720,6 @@ class GoogleSheetService:
         Returns: (success, message, synced_count)
         """
         try:
-            import sqlite3
-            import os
-            
-            DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'data.db')
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             
@@ -690,11 +739,6 @@ class GoogleSheetService:
                         select_parts.append(f"(SELECT COALESCE(SUM(amount_paid), 0) FROM payments WHERE order_id = oi.order_id) as downpayment")
                     elif col == 'remaining_balance':
                         # (Sum of item prices) - (Sum of payments)
-                        # Note: We need to sum ALL items for this order, not just this row.
-                        # Logic: (SELECT SUM(quantity * price) FROM order_items WHERE order_id = oi.order_id) - (SELECT COALESCE(SUM(amount_paid), 0) FROM payments WHERE order_id = oi.order_id)
-                        # We should also handle shipping/discount if user wants "Order Total".
-                        # But user said "qty*price", so strictly item total.
-                        # Let's stick to item total for now as requested.
                         select_parts.append(f"((SELECT COALESCE(SUM(quantity * price), 0) FROM order_items WHERE order_id = oi.order_id) - (SELECT COALESCE(SUM(amount_paid), 0) FROM payments WHERE order_id = oi.order_id)) as remaining_balance")
                     elif col in ['id', 'order_id', 'order_number', 'item_name', 'quantity', 'scale', 'item_notes', 'item_status', 'price', 'spreadsheet_sync', 'created_at', 'updated_at', 'created_by', 'updated_by']:
                         select_parts.append(f"oi.{col}")
@@ -702,10 +746,17 @@ class GoogleSheetService:
                         select_parts.append(f"oi.{col}") # Default to order_items table
 
                 cols_str = ", ".join(select_parts)
-                query = f"SELECT oi.id, {cols_str} FROM order_items oi LEFT JOIN orders o ON oi.order_id = o.id WHERE 1=1"
+                # Ensure google_row_index is selected
+                query = f"SELECT oi.id, {cols_str}, oi.google_row_index FROM order_items oi LEFT JOIN orders o ON oi.order_id = o.id WHERE 1=1"
                 headers = custom_headers
             else:
-                query = "SELECT * FROM order_items WHERE 1=1"
+                db_cols = ['id', 'order_id', 'order_number', 'item_name', 'quantity', 'scale', 
+                           'item_notes', 'item_status', 'price', 'spreadsheet_sync', 'created_at', 'updated_at', 'created_by', 'updated_by']
+                
+                select_parts = [f"oi.{col}" for col in db_cols]
+                cols_str = ", ".join(select_parts)
+                query = f"SELECT {cols_str}, oi.google_row_index FROM order_items oi WHERE 1=1"
+                
                 # Define default headers
                 headers = ['ID', 'Order ID', 'Order Number', 'Item Name', 'Quantity', 'Scale', 
                            'Item Notes', 'Item Status', 'Price', 'Spreadsheet Sync', 'Created At', 'Updated At', 'Created By', 'Updated By']
@@ -726,10 +777,6 @@ class GoogleSheetService:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             
-            # Define headers for Order Items
-            # headers = ['ID', 'Order ID', 'Order Number', 'Item Name', 'Quantity', 'Scale', 'Item Notes', 
-            #            'Item Status', 'Price', 'Spreadsheet Sync', 'Created At', 'Updated At', 'Created By', 'Updated By']
-
             # Ensure 'OrderItems' sheet exists
             ok, msg = self.ensure_sheet('OrderItems', headers, service_json, sheet_id)
             if not ok:
@@ -791,7 +838,6 @@ class GoogleSheetService:
             
             # Keep track of current row in the sheet
             current_sheet_row = len(existing_values) if 'existing_values' in locals() else 1 
-            # (Note: len includes headers, so if 1 row total, it's headers only, index 1 is first data row)
             
             # Ensure id_to_row and id_col_idx are defined even if exception occurred
             if 'id_to_row' not in locals(): id_to_row = {}
@@ -800,9 +846,12 @@ class GoogleSheetService:
             synced_count = 0
             for row in rows:
                 item_id = row[0]
+                g_index = row[-1]
                 
                 if custom_headers:
-                    row_data = [val if val is not None else '' for val in row[1:]]
+                    # row is (id, cols..., google_row_index)
+                    # row_data should be row[1:-1]
+                    row_data = [val if val is not None else '' for val in row[1:-1]]
                     
                     current_order_val = None
                     order_col_idx = -1
@@ -824,16 +873,21 @@ class GoogleSheetService:
                             
                         last_order_id = current_order_val
                 else:
-                    row_data = [val if val is not None else '' for val in row]
+                    # row is (col1, col2..., google_row_index)
+                    # row_data should be row[:-1]
+                    row_data = [val if val is not None else '' for val in row[:-1]]
 
-                ok, msg = self.update_or_append_data('OrderItems', [row_data], item_id, id_col_idx, id_to_row, service_json, sheet_id)
+                ok, msg, new_row_num = self.update_or_append_data('OrderItems', [row_data], item_id, id_col_idx, id_to_row, service_json, sheet_id, google_row_index=g_index)
                 
                 if ok:
-                    # If we are in a block, we might want to trigger merge
-                    # Actually, let's just collect block info and merge at the very end
-                    # to avoid too many API calls.
+                    updates = ["spreadsheet_sync = 1"]
+                    params = []
+                    if new_row_num:
+                         updates.append("google_row_index = ?")
+                         params.append(new_row_num)
                     
-                    cursor.execute("UPDATE order_items SET spreadsheet_sync = 1 WHERE id = ?", (item_id,))
+                    params.append(item_id)
+                    cursor.execute(f"UPDATE order_items SET {', '.join(updates)} WHERE id = ?", params)
                     synced_count += 1
                     current_sheet_row += 1
             
@@ -925,10 +979,6 @@ class GoogleSheetService:
         Returns: (success, message, synced_count)
         """
         try:
-            import sqlite3
-            import os
-            
-            DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'data.db')
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             
@@ -950,10 +1000,16 @@ class GoogleSheetService:
                         select_parts.append(f"p.{col}") # Default to payments table
 
                 cols_str = ", ".join(select_parts)
-                query = f"SELECT p.id, {cols_str} FROM payments p LEFT JOIN orders o ON p.order_id = o.id WHERE 1=1"
+                query = f"SELECT p.id, {cols_str}, p.google_row_index FROM payments p LEFT JOIN orders o ON p.order_id = o.id WHERE 1=1"
                 headers = custom_headers
             else:
-                query = "SELECT * FROM payments WHERE 1=1"
+                db_cols = ['id', 'order_id', 'merchant_id', 'payment_reference', 'amount_paid', 'payment_status', 
+                           'paid_at', 'spreadsheet_sync', 'created_at', 'updated_at', 'created_by', 'updated_by']
+                
+                select_parts = [f"p.{col}" for col in db_cols]
+                cols_str = ", ".join(select_parts)
+                query = f"SELECT {cols_str}, p.google_row_index FROM payments p WHERE 1=1"
+                
                 # Define default headers
                 headers = ['ID', 'Order ID', 'Merchant ID', 'Payment Reference', 'Amount Paid', 'Payment Status', 
                            'Paid At', 'Spreadsheet Sync', 'Created At', 'Updated At', 'Created By', 'Updated By']
@@ -974,10 +1030,6 @@ class GoogleSheetService:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             
-            # Define headers for Payments
-            # headers = ['ID', 'Order ID', 'Merchant ID', 'Payment Reference', 'Amount Paid', 'Payment Status', 
-            #            'Paid At', 'Spreadsheet Sync', 'Created At', 'Updated At', 'Created By', 'Updated By']
-
             # Ensure 'Payments' sheet exists
             ok, msg = self.ensure_sheet('Payments', headers, service_json, sheet_id)
             if not ok:
@@ -988,22 +1040,43 @@ class GoogleSheetService:
                 conn.close()
                 return True, "Payments sheet checked. No new payments to sync.", 0
             
-            # Fetch existing data for duplicate check
-            id_to_row, id_col_idx = self.get_sheet_id_map('Payments', service_json, sheet_id)
+            # Fetch existing data for duplicate check ONLY if needed
+            needs_sheet_map = False
+            for row in rows:
+                g_index = row[-1]
+                if not g_index:
+                    needs_sheet_map = True
+                    break
+            
+            id_to_row = {}
+            id_col_idx = -1
+            
+            if needs_sheet_map:
+                id_to_row, id_col_idx = self.get_sheet_id_map('Payments', service_json, sheet_id)
 
             synced_count = 0
             for row in rows:
                 payment_id = row[0]
+                g_index = row[-1]
                 
                 if custom_headers:
-                    row_data = [val if val is not None else '' for val in row[1:]]
+                    # row is (id, cols..., google_row_index)
+                    row_data = [val if val is not None else '' for val in row[1:-1]]
                 else:
-                    row_data = [val if val is not None else '' for val in row]
+                    # row is (cols..., google_row_index)
+                    row_data = [val if val is not None else '' for val in row[:-1]]
 
-                ok, msg = self.update_or_append_data('Payments', [row_data], payment_id, id_col_idx, id_to_row, service_json, sheet_id)
+                ok, msg, new_row_num = self.update_or_append_data('Payments', [row_data], payment_id, id_col_idx, id_to_row, service_json, sheet_id, google_row_index=g_index)
                 
                 if ok:
-                    cursor.execute("UPDATE payments SET spreadsheet_sync = 1 WHERE id = ?", (payment_id,))
+                    updates = ["spreadsheet_sync = 1"]
+                    params = []
+                    if new_row_num:
+                         updates.append("google_row_index = ?")
+                         params.append(new_row_num)
+                    
+                    params.append(payment_id)
+                    cursor.execute(f"UPDATE payments SET {', '.join(updates)} WHERE id = ?", params)
                     synced_count += 1
             
             conn.commit()
@@ -1019,10 +1092,6 @@ class GoogleSheetService:
         Returns: (success, message, synced_count)
         """
         try:
-            import sqlite3
-            import os
-            
-            DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'data.db')
             conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             
@@ -1039,10 +1108,16 @@ class GoogleSheetService:
                         select_parts.append(f"e.{col}")
 
                 cols_str = ", ".join(select_parts)
-                query = f"SELECT e.id, {cols_str} FROM expenses e LEFT JOIN orders o ON e.order_id = o.id WHERE 1=1"
+                query = f"SELECT e.id, {cols_str}, e.google_row_index FROM expenses e LEFT JOIN orders o ON e.order_id = o.id WHERE 1=1"
                 headers = custom_headers
             else:
-                query = "SELECT * FROM expenses WHERE 1=1"
+                db_cols = ['id', 'order_id', 'merchant_id', 'expense_name', 'expense_amount', 'spreadsheet_sync', 
+                           'created_at', 'updated_at', 'created_by', 'updated_by']
+                
+                select_parts = [f"e.{col}" for col in db_cols]
+                cols_str = ", ".join(select_parts)
+                query = f"SELECT {cols_str}, e.google_row_index FROM expenses e WHERE 1=1"
+                
                 # Define headers for Expenses
                 headers = ['ID', 'Order ID', 'Merchant ID', 'Expense Name', 'Expense Amount', 'Spreadsheet Sync', 
                            'Created At', 'Updated At', 'Created By', 'Updated By']
@@ -1063,10 +1138,6 @@ class GoogleSheetService:
             cursor.execute(query, params)
             rows = cursor.fetchall()
             
-            # Define headers for Expenses
-            # headers = ['ID', 'Order ID', 'Merchant ID', 'Expense Name', 'Expense Amount', 'Spreadsheet Sync', 
-            #            'Created At', 'Updated At', 'Created By', 'Updated By']
-
             # Ensure 'Expenses' sheet exists
             ok, msg = self.ensure_sheet('Expenses', headers, service_json, sheet_id)
             if not ok:
@@ -1077,22 +1148,43 @@ class GoogleSheetService:
                 conn.close()
                 return True, "Expenses sheet checked. No new expenses to sync.", 0
             
-            # Fetch existing data for duplicate check
-            id_to_row, id_col_idx = self.get_sheet_id_map('Expenses', service_json, sheet_id)
+            # Fetch existing data for duplicate check ONLY if needed
+            needs_sheet_map = False
+            for row in rows:
+                g_index = row[-1]
+                if not g_index:
+                    needs_sheet_map = True
+                    break
+            
+            id_to_row = {}
+            id_col_idx = -1
+            
+            if needs_sheet_map:
+                id_to_row, id_col_idx = self.get_sheet_id_map('Expenses', service_json, sheet_id)
 
             synced_count = 0
             for row in rows:
                 expense_id = row[0]
+                g_index = row[-1]
                 
                 if custom_headers:
-                    row_data = [val if val is not None else '' for val in row[1:]]
+                    # row is (id, cols..., google_row_index)
+                    row_data = [val if val is not None else '' for val in row[1:-1]]
                 else:
-                    row_data = [val if val is not None else '' for val in row]
-
-                ok, msg = self.update_or_append_data('Expenses', [row_data], expense_id, id_col_idx, id_to_row, service_json, sheet_id)
+                    # row is (cols..., google_row_index)
+                    row_data = [val if val is not None else '' for val in row[:-1]]
+                
+                ok, msg, new_row_num = self.update_or_append_data('Expenses', [row_data], expense_id, id_col_idx, id_to_row, service_json, sheet_id, google_row_index=g_index)
                 
                 if ok:
-                    cursor.execute("UPDATE expenses SET spreadsheet_sync = 1 WHERE id = ?", (expense_id,))
+                    updates = ["spreadsheet_sync = 1"]
+                    params = []
+                    if new_row_num:
+                         updates.append("google_row_index = ?")
+                         params.append(new_row_num)
+                    
+                    params.append(expense_id)
+                    cursor.execute(f"UPDATE expenses SET {', '.join(updates)} WHERE id = ?", params)
                     synced_count += 1
             
             conn.commit()
@@ -1107,9 +1199,6 @@ class GoogleSheetService:
         Generic pull logic: Fetches data from sheet and updates/inserts into DB.
         """
         try:
-            import sqlite3
-            import os
-            DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'data.db')
             conn = sqlite3.connect(DB_PATH)
             conn.row_factory = sqlite3.Row
             cursor = conn.cursor()

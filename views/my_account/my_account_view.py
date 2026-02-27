@@ -4,6 +4,7 @@ from tkinter import ttk, filedialog, messagebox
 from controllers.MyAccountController import MyAccountController
 from PIL import Image, ImageTk
 import os
+from utils.paths import PROFILES_DIR, get_image_path
 
 class StaticImageLabel(tk.Label):
     """A lightweight Label for displaying static images with minimal memory footprint."""
@@ -237,12 +238,26 @@ class MyAccountView(tk.Frame):
             self.btn_save_pass.config(state="disabled")
 
     def _load_photo(self):
-        photo_filename = self.user.display_photo or "placeholder_user.png"
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        photo_path = os.path.join(base_path, "assets", "images", photo_filename)
+        # 1. Determine the source path
+        photo_filename = self.user.display_photo
+        photo_path = None
 
-        if not os.path.exists(photo_path):
-            photo_path = os.path.join(base_path, "assets", "images", "placeholder_user.png")
+        if photo_filename:
+            # Check if it's a legacy path (profiles/filename) or new (filename)
+            clean_filename = os.path.basename(photo_filename)
+            persistent_path = os.path.join(PROFILES_DIR, clean_filename)
+            
+            if os.path.exists(persistent_path):
+                photo_path = persistent_path
+            else:
+                # Fallback to legacy bundled path if it exists
+                bundled_path = get_image_path(photo_filename if "profiles" in photo_filename else os.path.join("profiles", photo_filename))
+                if os.path.exists(bundled_path):
+                    photo_path = bundled_path
+
+        # 2. Fallback to placeholder if no custom photo found
+        if not photo_path or not os.path.exists(photo_path):
+            photo_path = get_image_path("placeholder_user.png")
 
         try:
             # 1. Stop and clear existing photo if it exists

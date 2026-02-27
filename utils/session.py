@@ -1,8 +1,10 @@
 import os
 import json
 from datetime import datetime, timedelta
+from utils.paths import DATA_DIR
 
-SESSION_FILE = os.path.join(os.path.dirname(__file__), "..", "data", "session.json")
+SESSION_FILE = os.path.join(DATA_DIR, "session.json")
+
 
 class Session:
     _instance = None

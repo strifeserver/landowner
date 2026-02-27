@@ -2,11 +2,8 @@
 import os
 from models.base_model import BaseModel
 from models.access_level import AccessLevel
-from utils.debug import print_r
 
-DB_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)), "..", "data", "data.db"
-)
+from models.db_config import DB_PATH
 
 
 class User(BaseModel):
@@ -68,6 +65,11 @@ class User(BaseModel):
             "order": 15,
             "editable": False,
         },
+        "google_row_index": {
+            "alias": "Google Row Index",
+            "is_hidden": True,
+            "editable": False,
+        },
     }
 
     # -----------------------
@@ -91,6 +93,7 @@ class User(BaseModel):
         "updated_at",
         "created_by",
         "updated_by",
+        "google_row_index",
     ]
 
     # -----------------------
@@ -110,7 +113,6 @@ class User(BaseModel):
     @classmethod
     def store(cls, **kwargs):
         return super().store_sqlite(DB_PATH, cls.table_name, **kwargs)
-
 
     # -----------------------
     # GET single user (for edit)
@@ -167,7 +169,6 @@ class User(BaseModel):
             table_alias="u",
             debug=debug,
         )
-
 
     @classmethod
     def update(cls, id, **kwargs):
@@ -244,7 +245,7 @@ class User(BaseModel):
                 
             return f"{next_id:06}"
         except Exception as e:
-            print(f"Error generating customId: {e}")
+
             return "000001"
 
     # -----------------------

@@ -2,6 +2,9 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
 import json
+import sqlite3
+import os
+from models.db_config import DB_PATH
 
 class SheetSyncSettingsView(tk.Toplevel):
     def __init__(self, parent, table_name, callback=None):
@@ -34,12 +37,8 @@ class SheetSyncSettingsView(tk.Toplevel):
 
     def _get_available_columns(self):
         """Fetch columns from DB"""
-        import sqlite3
-        import os
-        
-        db_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "data", "data.db")
         try:
-            conn = sqlite3.connect(db_path)
+            conn = sqlite3.connect(DB_PATH)
             cursor = conn.cursor()
             
             # Base columns

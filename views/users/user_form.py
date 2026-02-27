@@ -214,7 +214,15 @@ class UserForm(tk.Toplevel):
 
         # For ADD mode, include Employee ID and Password
         if not self.user_id:
-            data["customId"] = self.initial_data.get("customId")
+            custom_id = self.initial_data.get("customId")
+            if not custom_id:
+                try:
+                    custom_id = User.get_next_custom_id()
+                except Exception as e:
+
+                    custom_id = "000001"
+            
+            data["customId"] = custom_id
             data["password"] = self.password_entry.get()
 
         # 3. Communicate with Controller (via callback passed from table_buttons)
